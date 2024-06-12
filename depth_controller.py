@@ -3,6 +3,8 @@ import numpy as np
 
 
 def find_layers_coords(image, a_scan):
+    if a_scan < 0 or a_scan >= image.shape[1]:
+        return np.inf, np.inf, np.inf
     try:
         ilm_row = np.where(image[:, a_scan] == 2)[0][0]
         rpe_row = np.where(image[:, a_scan] == 3)[0][0]

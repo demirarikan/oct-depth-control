@@ -106,18 +106,23 @@ def apply_color_map(seg_mask):
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-def visualize_component_analysis(segmented_b_scan, num_labels, labels, stats):
-    plt.imshow(segmented_b_scan)
+import os
+def visualize_component_analysis(segmented_b_scan, num_labels, stats, slice_idx=0):
+    # custom colormap for segmentation mask 
+    colors = ['black', 'red', 'green', 'blue']
+    seg_cmap = plt.cm.colors.ListedColormap(colors)
+
+    plt.imshow(segmented_b_scan, cmap=seg_cmap)
+    plt.axis('off')
+
     min_area = 150
     for i in range(1, num_labels):
         area = stats[i, cv2.CC_STAT_AREA]
         if area >= min_area:
             x, y, w, h = stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP], stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT]
-            rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='r', facecolor='none') 
+            rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='y', facecolor='none') 
             plt.gca().add_patch(rect)
+    plt.savefig(f'component_analysis_{slice_idx}.png')
     plt.show()
-
-
-
-
+    
 

@@ -65,7 +65,7 @@ def volume_find_needle_tip_largest_component(segmented_b_scans, needle_label=1, 
 
 def cleanup_edges(segmentation_mask):
     eroison_kernel = np.ones((2, 2), np.uint8)
-    dilation_kernel = np.ones((5, 5), np.uint8)
+    dilation_kernel = np.ones((3, 3), np.uint8)
 
     dilated_mask = np.zeros_like(segmentation_mask)
 

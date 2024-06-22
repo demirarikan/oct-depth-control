@@ -243,26 +243,5 @@ class LeicaEngine(object):
         if (frame_number % 2 == frame_to_save):
             return frame
 
-class MockLeica():
-    def __init__(self, scans_path):
-        self.scans = self.get_scans_iterator(scans_path)
-        self.current_index = 0
 
-    def get_scans_iterator(self, scans_path):
-        import os
-        import re
-        _nsre = re.compile('([0-9]+)')
-        def natural_sort_key(s):
-            return [int(text) if text.isdigit() else text.lower()
-                    for text in re.split(_nsre, s)] 
-        scans = sorted(os.listdir(scans_path), key=natural_sort_key)
-        return scans
-
-    def __get_b_scans_volume__(self):
-        if self.current_index < len(self.scans):
-            scan = self.scans[self.current_index]
-            self.current_index += 1
-            return scan
-        else:
-            raise StopIteration("No more scans available.")
         

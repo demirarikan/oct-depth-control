@@ -13,6 +13,9 @@ current_depth_relative = 0.0
 n_bscans = 5
 dims = (0.1, 5)
 
+save_point_cloud_image = True
+image_count = 0
+
 seg_model = NeedleSegModel('weights/straight_needle_seg_model.pth')
 
 # leica_reader = leica_engine.LeicaEngine(ip_address="192.168.1.75",   
@@ -34,8 +37,8 @@ if __name__ == '__main__':
         seg_volume = seg_model.segment_volume(oct_volume)
 
         needle_point_cloud = oct_point_cloud.create_point_cloud_from_vol(seg_volume, seg_index=[1])
-        needle_tip_coords = oct_point_cloud.needle_cloud_find_needle_tip(needle_point_cloud, 
-                                                                            return_clean_point_cloud=False)
+        needle_tip_coords, clean_needle_point_cloud = oct_point_cloud.needle_cloud_find_needle_tip(needle_point_cloud, 
+                                                                        return_clean_point_cloud=True)
         
         ilm_depth_map = oct_point_cloud.get_depth_map(seg_volume, seg_index=2)
         rpe_depth_map = oct_point_cloud.get_depth_map(seg_volume, seg_index=3)
@@ -52,6 +55,15 @@ if __name__ == '__main__':
                                                                         ilm_tip_coords[0], 
                                                                         rpe_tip_coords[0])
         print(f"Current depth: {current_depth_relative}")
+
+        if save_point_cloud_image:
+            oct_point_cloud.create_save_point_cloud(clean_needle_point_cloud,
+                                                    ilm_points,
+                                                    rpe_points,
+                                                    needle_tip_coords,
+                                                    save_name=f'needle_tip_{image_count}_{current_depth_relative:.2f}')
+            image_count += 1
+
         
     print("Reached target depth")
 

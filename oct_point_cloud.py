@@ -94,6 +94,15 @@ def needle_cloud_find_needle_tip(needle_point_cloud, return_clean_point_cloud=Fa
     else:
         return needle_tip_coords
 
+def calculate_needle_tip_depth(needle_tip_coords, ilm_coords, rpe_coords):
+    needle_tip_depth = needle_tip_coords[1]
+    ilm_depth = ilm_coords[1]
+    rpe_depth = rpe_coords[1]
+    ilm_rpe_distance = rpe_depth - ilm_depth
+    needle_tip_depth_relative = needle_tip_depth - ilm_depth
+    needle_tip_depth_relative_percentage = needle_tip_depth_relative / ilm_rpe_distance
+    return needle_tip_depth, needle_tip_depth_relative, needle_tip_depth_relative_percentage
+
 def create_point_cloud_from_vol(seg_volume, seg_index):
     needle_first_occ_coords, needle_colors = get_points_and_colors(seg_volume, values=seg_index)
     needle_point_cloud = o3d.geometry.PointCloud()
@@ -126,11 +135,49 @@ def create_mesh_sphere(center, radius=3, color=[1., 0., 1.]):
     mesh_sphere.transform(your_transform)
     return mesh_sphere 
 
-def calculate_needle_tip_depth(needle_tip_coords, ilm_coords, rpe_coords):
-    needle_tip_depth = needle_tip_coords[1]
-    ilm_depth = ilm_coords[1]
-    rpe_depth = rpe_coords[1]
-    ilm_rpe_distance = rpe_depth - ilm_depth
-    needle_tip_depth_relative = needle_tip_depth - ilm_depth
-    needle_tip_depth_relative_percentage = needle_tip_depth_relative / ilm_rpe_distance
-    return needle_tip_depth, needle_tip_depth_relative, needle_tip_depth_relative_percentage
+def create_mesh_cylinder(needle_tip_coords, radius=0.3, height=500):
+    ascan_cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=height)
+    transform = np.array([
+        [1, 0, 0, needle_tip_coords[0]],
+        [0, 0, 1, needle_tip_coords[1]],
+        [0, -1, 0, needle_tip_coords[2]],
+        [0, 0, 0, 1]
+    ])
+    ascan_cylinder.transform(transform)
+    return ascan_cylinder
+
+def create_save_point_cloud(cleaned_needle_point_cloud, 
+                            ilm_points,
+                            rpe_points,
+                            needle_tip_coords, 
+                            save_path='debug_point_cloud_images',
+                            save_name='point_cloud'):
+    needle_tip_sphere = create_mesh_sphere(needle_tip_coords, radius=3, color=[1., 0., 1.])
+    ascan_cylinder = create_mesh_cylinder(needle_tip_coords, radius=0.3, height=500)
+
+    needle_colors = np.array([[1, 0, 0] for _ in range(np.asarray(cleaned_needle_point_cloud.points).shape[0])])
+    ilm_colors = np.array([[0, 1, 0] for _ in range(ilm_points.shape[0])])
+    rpe_colors = np.array([[0, 0, 1] for _ in range(rpe_points.shape[0])])
+
+    cleaned_needle_point_cloud.colors = o3d.utility.Vector3dVector(needle_colors)
+
+    oct_point_cloud = o3d.geometry.PointCloud()
+
+    oct_point_cloud.points = o3d.utility.Vector3dVector(np.vstack((ilm_points, rpe_points)))
+    oct_point_cloud.colors = o3d.utility.Vector3dVector(np.vstack((ilm_colors, rpe_colors)))
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    for geo in [oct_point_cloud, cleaned_needle_point_cloud, needle_tip_sphere, ascan_cylinder]:
+        vis.add_geometry(geo)
+
+    ctr = vis.get_view_control()
+
+    ctr.set_lookat(needle_tip_coords)
+    ctr.set_up([0, -1, 0])
+    ctr.set_front([1, 0, 0])
+    ctr.set_zoom(0.2)
+
+    vis.update_renderer()
+    
+    vis.capture_screen_image(f'{save_path}/{save_name}.png', True)

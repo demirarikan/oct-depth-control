@@ -1,7 +1,8 @@
-import torch
-from torchvision import transforms
 import monai
 import numpy as np
+import torch
+from torchvision import transforms
+
 
 class NeedleSegModel():
     def __init__(self, weights_path):

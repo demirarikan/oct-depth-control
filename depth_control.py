@@ -1,10 +1,6 @@
 # import leica_engine
-from mock_leica import MockLeica
 import oct_point_cloud
-import torch
-from torchvision import transforms
-import monai
-import numpy as np
+from mock_leica import MockLeica
 from needle_seg_model import NeedleSegModel
 
 target_depth_relative = 0.5

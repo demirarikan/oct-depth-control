@@ -1,6 +1,8 @@
 import os
 import re
+
 import numpy as np
+
 
 class MockLeica():
     def __init__(self, scans_path):

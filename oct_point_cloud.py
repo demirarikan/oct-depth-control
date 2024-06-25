@@ -3,6 +3,7 @@ from collections import Counter
 import cv2
 import numpy as np
 import open3d as o3d
+from skimage.restoration import inpaint
 
 
 def get_points_and_colors(volume, values=[1, 2, 3]):
@@ -44,17 +45,19 @@ def inpaint_layers(ilm_depth_map, rpe_depth_map):
     ilm_depth_map_max = ilm_depth_map.max()
     rpe_depth_map_max = rpe_depth_map.max()
     # normalize
-    ilm_depth_map = ilm_depth_map / ilm_depth_map_max
-    rpe_depth_map = rpe_depth_map / rpe_depth_map_max
+    ilm_depth_map = (ilm_depth_map / ilm_depth_map_max)
+    rpe_depth_map = (rpe_depth_map / rpe_depth_map_max)
     # create inpainting masks
     ilm_inpainting_mask = np.where(ilm_depth_map == 0, 1, 0).astype(np.uint8)
     rpe_inpainting_mask = np.where(rpe_depth_map == 0, 1, 0).astype(np.uint8)
     # inpaint
-    inpaint_ilm = cv2.inpaint(ilm_depth_map.astype(np.float32), ilm_inpainting_mask, 3, cv2.INPAINT_NS)
-    inpaint_rpe = cv2.inpaint(rpe_depth_map.astype(np.float32), rpe_inpainting_mask, 3, cv2.INPAINT_NS)
+    # inpaint_ilm = cv2.inpaint(ilm_depth_map.astype(np.float32), ilm_inpainting_mask, 3, cv2.INPAINT_NS)
+    # inpaint_rpe = cv2.inpaint(rpe_depth_map.astype(np.float32), rpe_inpainting_mask, 3, cv2.INPAINT_NS)
+    inpaint_ilm = inpaint.inpaint_biharmonic(ilm_depth_map, ilm_inpainting_mask)
+    inpaint_rpe = inpaint.inpaint_biharmonic(rpe_depth_map, rpe_inpainting_mask)
     # denormalize
-    inpaint_ilm = inpaint_ilm * ilm_depth_map_max
-    inpaint_rpe = inpaint_rpe * rpe_depth_map_max
+    inpaint_ilm = (inpaint_ilm) * ilm_depth_map_max
+    inpaint_rpe = (inpaint_rpe) * rpe_depth_map_max
 
     ilm_points = np.empty((0,3))
     rpe_points = np.empty((0,3))
@@ -179,5 +182,6 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
     ctr.set_zoom(0.2)
 
     vis.update_renderer()
-    
+    # vis.run()
+    # vis.destroy_window()
     vis.capture_screen_image(f'{save_path}/{save_name}.png', True)

@@ -37,6 +37,7 @@ class RobotController():
             self.pub_tip_vel.publish(send_linear_velocity[0], send_linear_velocity[1], send_linear_velocity[2])
             rospy.sleep(0.1)
         self.pub_tip_vel.publish(0, 0, 0)
+        rospy.sleep(0.1)
 
     def move_backward_needle_axis(self, kp_linear_vel=2, linear_vel=0.1, duration_sec=1):
         current_quat = self.orientation
@@ -52,6 +53,11 @@ class RobotController():
         end = time.perf_counter()
         self.pub_tip_vel.publish(0, 0, 0)
         print(f'took {end-start}')
+
+    def stop(self):
+        for i in range(10):
+            self.pub_tip_vel.publish(0,0,0)
+            rospy.sleep(0.1)
 
 
 # if __name__ == '__main__':

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torchvision import transforms
 import cv2
+import time
 
 
 class NeedleSegModel():
@@ -21,13 +22,15 @@ class NeedleSegModel():
         self.model.eval()
         print('Model loaded successfully')
 
-    def prepare_vol_from_leica_engine(self, oct_volume):
+    def prepare_vol_from_leica_engine(self, oct_volume, save_train_img=False):
         oct_volume = oct_volume.transpose(1, 0, 2)
         oct_volume = np.rot90(oct_volume, axes=(1, 2))
         oct_volume = oct_volume.astype(np.float32)
         oct_volume = torch.tensor(oct_volume).to(self.device)
         oct_volume = transforms.Pad((12, 0, 12, 0))(oct_volume)
         oct_volume = oct_volume.unsqueeze(1)
+        if save_train_img:
+            self.save_volume_images(oct_volume)
         return oct_volume
     
     def segment_volume(self, oct_volume, debug=False):
@@ -36,10 +39,25 @@ class NeedleSegModel():
             seg_volume = torch.argmax(torch.softmax(seg_volume, dim=1), dim=1)
             seg_volume = seg_volume.cpu().numpy()
             if debug:
+                opacity = 0.4
+                timestamp = int(time.time())
                 for idx, seg_mask in enumerate(seg_volume):
+                    oct_img = oct_volume[idx].cpu().numpy().squeeze(0) * 255
+                    oct_img_rgb = cv2.cvtColor(oct_img, cv2.COLOR_GRAY2RGB)
                     seg_mask = apply_color_map(seg_mask)
-                    cv2.imwrite(f'bscan_{idx}.png', seg_mask)
+                    blended_image = cv2.addWeighted(oct_img_rgb, 
+                                                    1-opacity, 
+                                                    seg_mask.astype(np.float32), 
+                                                    opacity, 
+                                                    0)
+                    cv2.imwrite(f'bscan_{timestamp}_{idx}.png', blended_image)
         return seg_volume
+    
+    def save_volume_images(self, oct_volume):
+        timestamp = int(time.time())
+        for idx, b_scan in enumerate(oct_volume):
+            oct_img = b_scan.cpu().numpy().squeeze(0)[:, 12:-12] * 255
+            cv2.imwrite(f'train_images/bscan_{timestamp}_{idx}.png', oct_img)
     
 def apply_color_map(seg_mask):
     # Create an empty image with 3 channels (RGB)

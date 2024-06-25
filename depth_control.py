@@ -1,4 +1,4 @@
-# import leica_engine
+import leica_engine
 import oct_point_cloud
 from mock_leica import MockLeica
 from needle_seg_model import NeedleSegModel
@@ -7,6 +7,7 @@ from robot_controller import RobotController
 
 target_depth_relative = 0.5
 current_depth_relative = 0.0
+error_range = 0.05
 
 n_bscans = 5
 dims = (0.1, 5)
@@ -19,25 +20,29 @@ if __name__ == '__main__':
 
     robot_controller = RobotController()
     seg_model = NeedleSegModel('weights/straight_needle_seg_model.pth')
-    # leica_reader = leica_engine.LeicaEngine(ip_address="192.168.1.75",   
-    #                                n_bscans=n_bscans, 
-    #                                xd=dims[0], 
-    #                                yd=dims[1], 
-    #                                zd=3.379,
-    #                                )
-    leica_reader = MockLeica('/home/peiyao/Desktop/Demir/oct_volumes/jun11/2')
+    leica_reader = leica_engine.LeicaEngine(ip_address="192.168.1.75",   
+                                   n_bscans=n_bscans, 
+                                   xd=dims[0], 
+                                   yd=dims[1], 
+                                   zd=3.379,
+                                   )
+    # leica_reader = MockLeica('/home/peiyao/Desktop/Demir/oct_volumes/jun11/2')
     print("Leica reader initialized")
 
     while current_depth_relative < target_depth_relative:
     # while True:
         try:
-            oct_volume = leica_reader.__get_b_scans_volume__()
+            oct_volume, _ = leica_reader.__get_b_scans_volume__()
 
-            oct_volume = seg_model.prepare_vol_from_leica_engine(oct_volume)
+            oct_volume = seg_model.prepare_vol_from_leica_engine(oct_volume, save_train_img=False)
 
             seg_volume = seg_model.segment_volume(oct_volume, debug=True)
 
             needle_point_cloud = oct_point_cloud.create_point_cloud_from_vol(seg_volume, seg_index=[1])
+
+            oct_point_cloud.cluster_and_visualize_with_oriented_bboxes(needle_point_cloud)
+
+
             needle_tip_coords, clean_needle_point_cloud = oct_point_cloud.needle_cloud_find_needle_tip(needle_point_cloud, 
                                                                             return_clean_point_cloud=True)
             
@@ -57,8 +62,6 @@ if __name__ == '__main__':
                                                                             rpe_tip_coords[0])
             print(f"Current depth: {current_depth_relative}")
 
-            robot_controller.move_forward_needle_axis(duration_sec=0.5)
-
             if save_point_cloud_image:
                 oct_point_cloud.create_save_point_cloud(clean_needle_point_cloud,
                                                         ilm_points,
@@ -66,9 +69,19 @@ if __name__ == '__main__':
                                                         needle_tip_coords,
                                                         save_name=f'needle_tip_{image_count}_{current_depth_relative:.2f}')
                 image_count += 1
+
+            if (current_depth_relative >= 0 and 
+                current_depth_relative <= target_depth_relative+error_range and 
+                current_depth_relative >= target_depth_relative-error_range):
+                robot_controller.stop()
+                break
+            else:
+                print('Current depth smaller than target, moving robot')
+                # robot_controller.move_forward_needle_axis(duration_sec=0.5)
+                robot_controller.stop()
         except KeyboardInterrupt:
             break
         
-    print("Reached target depth")
+    print(f'Current calculated depth: {current_depth_relative}, Target depth: {target_depth_relative}')
 
 

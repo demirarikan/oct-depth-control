@@ -89,7 +89,7 @@ def find_lowest_point(point_cloud):
     return lowest_coords
 
 def needle_cloud_find_needle_tip(needle_point_cloud, return_clean_point_cloud=False):
-    needle_point_cloud = remove_outliers(needle_point_cloud, nb_points=5, radius=4)
+    needle_point_cloud = remove_outliers(needle_point_cloud, nb_points=5, radius=10)
     needle_point_cloud = get_largest_cluster(needle_point_cloud, eps=5, min_points=10)
     needle_tip_coords = find_lowest_point(needle_point_cloud)
     if return_clean_point_cloud:
@@ -171,7 +171,7 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
-    for geo in [oct_point_cloud, cleaned_needle_point_cloud, needle_tip_sphere, ascan_cylinder]:
+    for geo in [oct_point_cloud, cleaned_needle_point_cloud, needle_tip_sphere, ascan_cylinder]: # 
         vis.add_geometry(geo)
 
     ctr = vis.get_view_control()
@@ -182,6 +182,94 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
     ctr.set_zoom(0.2)
 
     vis.update_renderer()
-    # vis.run()
-    # vis.destroy_window()
+    vis.run()
+    vis.destroy_window()
     vis.capture_screen_image(f'{save_path}/{save_name}.png', True)
+
+
+def cluster_and_visualize_with_oriented_bboxes(pcd, eps=5, min_points=10):
+    # Perform Euclidean clustering
+    cluster_labels = np.array(pcd.cluster_dbscan(eps=eps, min_points=min_points, print_progress=False))
+
+    # Extract clusters
+    max_label = cluster_labels.max()
+    clusters = []
+    for label in range(max_label + 1):
+        cluster_points = np.asarray(pcd.points)[cluster_labels == label]
+        clusters.append(cluster_points)
+
+    # Visualize clusters with oriented bounding boxes
+    vis_list = [pcd]  # List to hold geometries for visualization
+
+    for cluster in clusters:
+        # Create a PointCloud object for the cluster
+        cluster_pcd = o3d.geometry.PointCloud()
+        cluster_pcd.points = o3d.utility.Vector3dVector(cluster)
+
+        # Compute oriented bounding box
+        obb = cluster_pcd.get_oriented_bounding_box()
+        obb.color = (1, 0, 1)
+
+        x, y, z = compute_tilt_angles_from_obb(obb)
+        # only show obbs that have similar tilt to needle
+        print((x, y, z))
+        if abs(y) - 38 < 8:
+            vis_list.append(obb)
+        # Visualize the cluster
+        vis_list.append(cluster_pcd)
+
+    # Visualization
+    coords = o3d.geometry.TriangleMesh.create_coordinate_frame(size=100)
+    vis_list.append(coords)
+    o3d.visualization.draw_geometries(vis_list)
+
+def find_clusters_with_needle_angle(needle_point_cloud, needle_angle, angle_tolerance=10, eps=5, min_points=10):
+    cluster_labels = np.array(needle_point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=False))
+    max_label = cluster_labels.max()
+    clusters = []
+    for label in range(max_label + 1):
+        cluster_points = np.asarray(needle_point_cloud.points)[cluster_labels == label]
+        clusters.append(cluster_points)
+
+    needle_cluster_centers = []
+    needle_cluster_points = []
+    for cluster in clusters:
+        cluster_pcd = o3d.geometry.PointCloud()
+        cluster_pcd.points = o3d.utility.Vector3dVector(cluster)
+
+        obb = cluster_pcd.get_oriented_bounding_box()
+        _, y_angle, _ = compute_tilt_angles_from_obb(obb)
+
+        if abs(y_angle) - needle_angle < angle_tolerance:
+            obb_center = obb.center
+            needle_cluster_centers.append(obb_center)
+            needle_cluster_points.append(cluster)
+    return needle_cluster_centers, needle_cluster_points
+
+def draw_cylinder(clusters):
+    from sklearn.decomposition import PCA
+
+    center = np.mean(clusters)
+    cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=2, height=500)
+    cylinder.rotate
+    
+
+def compute_tilt_angles_from_obb(obb):
+    # Get rotation matrix from oriented bounding box
+    rotation_matrix = np.array(obb.R)
+
+    # Compute tilt angles (euler angles)
+    # Open3D uses rotation around Z-Y-X axis convention (intrinsics)
+    theta_x = np.arctan2(rotation_matrix[2, 1], rotation_matrix[2, 2])
+    theta_y = np.arctan2(-rotation_matrix[2, 0], np.sqrt(rotation_matrix[2, 1]**2 + rotation_matrix[2, 2]**2))
+    theta_z = np.arctan2(rotation_matrix[1, 0], rotation_matrix[0, 0])
+
+    # Convert angles to degrees for easier interpretation
+    theta_x_deg = np.degrees(theta_x)
+    theta_y_deg = np.degrees(theta_y)
+    theta_z_deg = np.degrees(theta_z)
+
+    return theta_x_deg, theta_y_deg, theta_z_deg
+
+def draw_geometries(geos):
+    o3d.visualization.draw_geometries(geos)

@@ -41,7 +41,7 @@ if __name__ == '__main__':
             needle_point_cloud = oct_point_cloud.create_point_cloud_from_vol(seg_volume, seg_index=[1])
 
             cylinder = oct_point_cloud.create_cylinder_pcd()
-            cylinder = oct_point_cloud.register_using_ransac(needle_point_cloud, cylinder)
+            cylinder = oct_point_cloud.register_using_ransac(needle_point_cloud, cylinder, voxel_size=0.8)
             oct_point_cloud.draw_geometries([needle_point_cloud, cylinder])
             cleaned_needle = oct_point_cloud.outlier_detection_needle_estimate(needle_point_cloud, cylinder)
             oct_point_cloud.draw_geometries([cleaned_needle, cylinder])

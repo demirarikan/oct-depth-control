@@ -306,24 +306,9 @@ def outlier_detection_needle_estimate(needle_point_cloud, needle_estimate_point_
 def draw_geometries(geos):
     o3d.visualization.draw_geometries(geos)
 
-
-
-def draw_registration_result(source, target, transformation):
-    source_temp = copy.deepcopy(source)
-    target_temp = copy.deepcopy(target)
-    source_temp.paint_uniform_color([1, 0.706, 0])
-    target_temp.paint_uniform_color([0, 0.651, 0.929])
-    source_temp.transform(transformation)
-    o3d.visualization.draw_geometries([source_temp, target_temp],
-                                      zoom=0.4559,
-                                      front=[0.6452, -0.3036, -0.7011],
-                                      lookat=[1.9892, 2.0208, 1.8945],
-                                      up=[-0.2779, -0.9482, 0.1556])
-
 def preprocess_point_cloud(pcd, voxel_size):
-    # print(":: Downsample with a voxel size %.3f." % voxel_size)
-    # pcd_down = pcd.voxel_down_sample(voxel_size)
-    pcd_down = pcd
+    print(":: Downsample with a voxel size %.3f." % voxel_size)
+    pcd_down = pcd.voxel_down_sample(voxel_size)
 
     radius_normal = voxel_size * 2
     pcd_down.estimate_normals(
@@ -350,12 +335,12 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
     return result
 
-def create_cylinder_pcd(radius=2, height=250, euler_angles=np.array([0, 30, 0])):
+def create_cylinder_pcd(radius=4, height=250, euler_angles=np.array([0, 30, 0])):
     cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=height)
     rotation_radians = np.radians(euler_angles)
     rotation_matrix = cylinder.get_rotation_matrix_from_axis_angle(rotation_radians)
     cylinder.rotate(rotation_matrix, center=(0, 0, 0))
-    pcd = cylinder.sample_points_uniformly(number_of_points=1000)
+    pcd = cylinder.sample_points_uniformly(number_of_points=400)
     return pcd
 
 

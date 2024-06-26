@@ -1,4 +1,5 @@
 from collections import Counter
+import copy
 
 import cv2
 import numpy as np
@@ -182,8 +183,8 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
     ctr.set_zoom(0.2)
 
     vis.update_renderer()
-    vis.run()
-    vis.destroy_window()
+    # vis.run()
+    # vis.destroy_window()
     vis.capture_screen_image(f'{save_path}/{save_name}.png', True)
 
 
@@ -231,31 +232,23 @@ def find_clusters_with_needle_angle(needle_point_cloud, needle_angle, angle_tole
         cluster_points = np.asarray(needle_point_cloud.points)[cluster_labels == label]
         clusters.append(cluster_points)
 
-    needle_cluster_centers = []
-    needle_cluster_points = []
+    needle_cluster_points = np.empty((0, 3))
     for cluster in clusters:
         cluster_pcd = o3d.geometry.PointCloud()
         cluster_pcd.points = o3d.utility.Vector3dVector(cluster)
 
-        obb = cluster_pcd.get_oriented_bounding_box()
+        try:
+            obb = cluster_pcd.get_oriented_bounding_box()
+        except RuntimeError:
+            continue
         _, y_angle, _ = compute_tilt_angles_from_obb(obb)
 
         if abs(y_angle) - needle_angle < angle_tolerance:
-            obb_center = obb.center
-            needle_cluster_centers.append(obb_center)
-            needle_cluster_points.append(cluster)
-    return needle_cluster_centers, needle_cluster_points
+            needle_cluster_points = np.vstack((needle_cluster_points, cluster))
 
-def draw_cylinder(clusters):
-    from sklearn.decomposition import PCA
-
-    center = np.mean(clusters)
-    cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=2, height=500)
-    cylinder.rotate
-    
+    return needle_cluster_points
 
 def compute_tilt_angles_from_obb(obb):
-    # Get rotation matrix from oriented bounding box
     rotation_matrix = np.array(obb.R)
 
     # Compute tilt angles (euler angles)
@@ -271,5 +264,106 @@ def compute_tilt_angles_from_obb(obb):
 
     return theta_x_deg, theta_y_deg, theta_z_deg
 
+def best_fit_line(points):
+    centroid = np.mean(points, axis=0)
+    centered_points = points - centroid
+    cov_matrix = np.cov(centered_points, rowvar=False)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
+    direction_vector = eigenvectors[:, np.argmax(eigenvalues)]
+    
+    return centroid, direction_vector
+
+def create_needle_estimate_pcd(centroid, direction_vector, length=2000, radius=0.5):
+    cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=length)
+    
+    z_axis = np.array([0, 0, 1])
+    v = np.cross(z_axis, direction_vector)
+    s = np.linalg.norm(v)
+    c = np.dot(z_axis, direction_vector)
+    
+    vx = np.array([[0, -v[2], v[1]],
+                   [v[2], 0, -v[0]],
+                   [-v[1], v[0], 0]])
+    
+    rotation_matrix_3x3 = np.eye(3) + vx + vx @ vx * ((1 - c) / (s ** 2))
+    
+    rotation_matrix = np.eye(4)
+    rotation_matrix[:3, :3] = rotation_matrix_3x3
+    
+    translation_matrix = np.eye(4)
+    translation_matrix[:3, 3] = centroid
+    
+    transformation_matrix = translation_matrix @ rotation_matrix
+    cylinder.transform(transformation_matrix)
+    
+    return cylinder.sample_points_uniformly(number_of_points=1000)
+
+def outlier_detection_needle_estimate(needle_point_cloud, needle_estimate_point_cloud, radius=5):
+    distances = needle_point_cloud.compute_point_cloud_distance(needle_estimate_point_cloud)
+    outliers = np.asarray(distances) > radius
+    return needle_point_cloud.select_by_index(np.where(outliers == 1)[0], invert=True)
+
 def draw_geometries(geos):
     o3d.visualization.draw_geometries(geos)
+
+
+
+def draw_registration_result(source, target, transformation):
+    source_temp = copy.deepcopy(source)
+    target_temp = copy.deepcopy(target)
+    source_temp.paint_uniform_color([1, 0.706, 0])
+    target_temp.paint_uniform_color([0, 0.651, 0.929])
+    source_temp.transform(transformation)
+    o3d.visualization.draw_geometries([source_temp, target_temp],
+                                      zoom=0.4559,
+                                      front=[0.6452, -0.3036, -0.7011],
+                                      lookat=[1.9892, 2.0208, 1.8945],
+                                      up=[-0.2779, -0.9482, 0.1556])
+
+def preprocess_point_cloud(pcd, voxel_size):
+    # print(":: Downsample with a voxel size %.3f." % voxel_size)
+    # pcd_down = pcd.voxel_down_sample(voxel_size)
+    pcd_down = pcd
+
+    radius_normal = voxel_size * 2
+    pcd_down.estimate_normals(
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+
+    radius_feature = voxel_size * 5
+    pcd_fpfh = o3d.pipelines.registration.compute_fpfh_feature(
+        pcd_down,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+    return pcd_down, pcd_fpfh
+
+def execute_global_registration(source_down, target_down, source_fpfh,
+                                target_fpfh, voxel_size):
+    distance_threshold = voxel_size * 1.5
+    result = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+        source_down, target_down, source_fpfh, target_fpfh, True,
+        distance_threshold,
+        o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+        3, [
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(
+                0.9),
+            o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(
+                distance_threshold)
+        ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
+    return result
+
+def create_cylinder_pcd(radius=2, height=250, euler_angles=np.array([0, 30, 0])):
+    cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=height)
+    rotation_radians = np.radians(euler_angles)
+    rotation_matrix = cylinder.get_rotation_matrix_from_axis_angle(rotation_radians)
+    cylinder.rotate(rotation_matrix, center=(0, 0, 0))
+    pcd = cylinder.sample_points_uniformly(number_of_points=1000)
+    return pcd
+
+
+def register_using_ransac(oct_needle_pcd, cylinder_pcd, voxel_size=0.4):
+    target_down, target_fpfh = preprocess_point_cloud(oct_needle_pcd, voxel_size)
+    source_down, source_fpfh = preprocess_point_cloud(cylinder_pcd, voxel_size)
+    result_ransac = execute_global_registration(source_down, target_down,
+                                                source_fpfh, target_fpfh,
+                                                voxel_size)
+    cylinder_pcd.transform(result_ransac.transformation)
+    return cylinder_pcd

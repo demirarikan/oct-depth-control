@@ -23,6 +23,6 @@ class MockLeica():
         if self.current_index < len(self.scans):
             scan = self.scans[self.current_index]
             self.current_index += 1
-            return np.load(scan)
+            return np.load(scan), None
         else:
             raise StopIteration("No more scans available.")

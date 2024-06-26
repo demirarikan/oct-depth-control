@@ -52,10 +52,13 @@ def inpaint_layers(ilm_depth_map, rpe_depth_map):
     ilm_inpainting_mask = np.where(ilm_depth_map == 0, 1, 0).astype(np.uint8)
     rpe_inpainting_mask = np.where(rpe_depth_map == 0, 1, 0).astype(np.uint8)
     # inpaint
-    # inpaint_ilm = cv2.inpaint(ilm_depth_map.astype(np.float32), ilm_inpainting_mask, 3, cv2.INPAINT_NS)
-    # inpaint_rpe = cv2.inpaint(rpe_depth_map.astype(np.float32), rpe_inpainting_mask, 3, cv2.INPAINT_NS)
-    inpaint_ilm = inpaint.inpaint_biharmonic(ilm_depth_map, ilm_inpainting_mask)
-    inpaint_rpe = inpaint.inpaint_biharmonic(rpe_depth_map, rpe_inpainting_mask)
+    inpaint_ilm = cv2.inpaint(ilm_depth_map.astype(np.float32), ilm_inpainting_mask, 3, cv2.INPAINT_NS)
+    inpaint_rpe = cv2.inpaint(rpe_depth_map.astype(np.float32), rpe_inpainting_mask, 3, cv2.INPAINT_NS)
+    # inpaint_ilm = inpaint.inpaint_biharmonic(ilm_depth_map, ilm_inpainting_mask)
+    # inpaint_rpe = inpaint.inpaint_biharmonic(rpe_depth_map, rpe_inpainting_mask)    
+    # inpaint_ilm = process_array(inpaint_ilm, threshold=0.5)
+    # inpaint_rpe = process_array(inpaint_rpe, threshold=0.6)
+
     # denormalize
     inpaint_ilm = (inpaint_ilm) * ilm_depth_map_max
     inpaint_rpe = (inpaint_rpe) * rpe_depth_map_max
@@ -72,6 +75,26 @@ def inpaint_layers(ilm_depth_map, rpe_depth_map):
             rpe_points = np.vstack((rpe_points, rpe_point))
 
     return ilm_points, rpe_points
+
+def process_array(array, threshold=0.4, group_size=4):
+    rows, cols = array.shape
+    if cols % group_size != 0:
+        raise ValueError("The number of columns is not divisible by the group size")
+
+    num_groups = cols // group_size
+
+    for i in range(num_groups):
+        group = array[:, i*group_size:(i+1)*group_size]
+
+        valid_values = group[group > threshold]
+        if valid_values.size > 0:
+            average = np.mean(valid_values)
+        else:
+            average = 1
+
+        group[group <= threshold] = average
+
+    return array
 
 def remove_outliers(point_cloud, nb_points=5, radius=4):
     cl, ind = point_cloud.remove_radius_outlier(nb_points=nb_points, radius=radius)
@@ -183,8 +206,8 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
     ctr.set_zoom(0.2)
 
     vis.update_renderer()
-    # vis.run()
-    # vis.destroy_window()
+    vis.run()
+    vis.destroy_window()
     vis.capture_screen_image(f'{save_path}/{save_name}.png', True)
 
 
@@ -335,12 +358,13 @@ def execute_global_registration(source_down, target_down, source_fpfh,
         ], o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
     return result
 
-def create_cylinder_pcd(radius=4, height=250, euler_angles=np.array([0, 30, 0])):
+def create_cylinder_pcd(radius=4, height=250, number_of_points=400, euler_angles=np.array([0, 35, 0])):
     cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=height)
     rotation_radians = np.radians(euler_angles)
     rotation_matrix = cylinder.get_rotation_matrix_from_axis_angle(rotation_radians)
     cylinder.rotate(rotation_matrix, center=(0, 0, 0))
-    pcd = cylinder.sample_points_uniformly(number_of_points=400)
+    pcd = cylinder.sample_points_uniformly(number_of_points=number_of_points)
+    pcd.colors = o3d.utility.Vector3dVector(np.array([[0,1,0] for _ in range(number_of_points)]))
     return pcd
 
 

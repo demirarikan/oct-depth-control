@@ -1,9 +1,9 @@
-import leica_engine
+# import leica_engine
 import oct_point_cloud
 from mock_leica import MockLeica
 from needle_seg_model import NeedleSegModel
-import rospy
-from robot_controller import RobotController
+# import rospy
+# from robot_controller import RobotController
 
 target_depth_relative = 0.5
 current_depth_relative = 0.0
@@ -16,17 +16,17 @@ save_point_cloud_image = True
 image_count = 0
 
 if __name__ == '__main__':
-    rospy.init_node('depth_controller', anonymous=True)
+    # rospy.init_node('depth_controller', anonymous=True)
 
-    robot_controller = RobotController()
+    # robot_controller = RobotController()
     seg_model = NeedleSegModel('weights/straight_needle_seg_model.pth')
-    leica_reader = leica_engine.LeicaEngine(ip_address="192.168.1.75",   
-                                   n_bscans=n_bscans, 
-                                   xd=dims[0], 
-                                   yd=dims[1], 
-                                   zd=3.379,
-                                   )
-    # leica_reader = MockLeica('/home/peiyao/Desktop/Demir/oct_volumes/jun11/2')
+    # leica_reader = leica_engine.LeicaEngine(ip_address="192.168.1.75",   
+    #                                n_bscans=n_bscans, 
+    #                                xd=dims[0], 
+    #                                yd=dims[1], 
+    #                                zd=3.379,
+    #                                )
+    leica_reader = MockLeica('/home/demir/Desktop/jhu_project/oct_scans/jun11/2.9')
     print("Leica reader initialized")
 
     while current_depth_relative < target_depth_relative:
@@ -36,15 +36,18 @@ if __name__ == '__main__':
 
             oct_volume = seg_model.prepare_vol_from_leica_engine(oct_volume, save_train_img=False)
 
-            seg_volume = seg_model.segment_volume(oct_volume, debug=True)
+            seg_volume = seg_model.segment_volume(oct_volume, debug=False)
 
             needle_point_cloud = oct_point_cloud.create_point_cloud_from_vol(seg_volume, seg_index=[1])
 
-            oct_point_cloud.cluster_and_visualize_with_oriented_bboxes(needle_point_cloud)
+            cylinder = oct_point_cloud.create_cylinder_pcd()
+            cylinder = oct_point_cloud.register_using_ransac(needle_point_cloud, cylinder)
+            oct_point_cloud.draw_geometries([needle_point_cloud, cylinder])
+            cleaned_needle = oct_point_cloud.outlier_detection_needle_estimate(needle_point_cloud, cylinder)
+            oct_point_cloud.draw_geometries([cleaned_needle, cylinder])
 
 
-            needle_tip_coords, clean_needle_point_cloud = oct_point_cloud.needle_cloud_find_needle_tip(needle_point_cloud, 
-                                                                            return_clean_point_cloud=True)
+            needle_tip_coords = oct_point_cloud.find_lowest_point(cleaned_needle)
             
             ilm_depth_map = oct_point_cloud.get_depth_map(seg_volume, seg_index=2)
             rpe_depth_map = oct_point_cloud.get_depth_map(seg_volume, seg_index=3)
@@ -63,7 +66,7 @@ if __name__ == '__main__':
             print(f"Current depth: {current_depth_relative}")
 
             if save_point_cloud_image:
-                oct_point_cloud.create_save_point_cloud(clean_needle_point_cloud,
+                oct_point_cloud.create_save_point_cloud(cleaned_needle,
                                                         ilm_points,
                                                         rpe_points,
                                                         needle_tip_coords,
@@ -73,12 +76,12 @@ if __name__ == '__main__':
             if (current_depth_relative >= 0 and 
                 current_depth_relative <= target_depth_relative+error_range and 
                 current_depth_relative >= target_depth_relative-error_range):
-                robot_controller.stop()
+                # robot_controller.stop()
                 break
             else:
                 print('Current depth smaller than target, moving robot')
                 # robot_controller.move_forward_needle_axis(duration_sec=0.5)
-                robot_controller.stop()
+                # robot_controller.stop()
         except KeyboardInterrupt:
             break
         

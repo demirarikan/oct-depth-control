@@ -1,5 +1,4 @@
 from collections import Counter
-import copy
 
 import cv2
 import numpy as np
@@ -31,95 +30,12 @@ def get_points_and_colors(volume, values=[1, 2, 3]):
 
     return first_occurrences, point_colors
 
-def get_depth_map(volume, seg_index):
-    z_dim, x_dim, _ = volume.shape
-    depth_map = np.zeros((z_dim, x_dim))
-    for z in range(z_dim):
-        for x in range(x_dim):
-            ascan = volume[z, :, x]
-            first_occurrence = np.argwhere(ascan==seg_index)
-            if first_occurrence.size > 0:
-                depth_map[z, x] = first_occurrence[0][0]
-    return depth_map
-
-def inpaint_layers(ilm_depth_map, rpe_depth_map):
-    ilm_depth_map_max = ilm_depth_map.max()
-    rpe_depth_map_max = rpe_depth_map.max()
-    # normalize
-    ilm_depth_map = (ilm_depth_map / ilm_depth_map_max)
-    rpe_depth_map = (rpe_depth_map / rpe_depth_map_max)
-    # create inpainting masks
-    ilm_inpainting_mask = np.where(ilm_depth_map == 0, 1, 0).astype(np.uint8)
-    rpe_inpainting_mask = np.where(rpe_depth_map == 0, 1, 0).astype(np.uint8)
-    # inpaint
-    inpaint_ilm = cv2.inpaint(ilm_depth_map.astype(np.float32), ilm_inpainting_mask, 3, cv2.INPAINT_NS)
-    inpaint_rpe = cv2.inpaint(rpe_depth_map.astype(np.float32), rpe_inpainting_mask, 3, cv2.INPAINT_NS)
-    # inpaint_ilm = inpaint.inpaint_biharmonic(ilm_depth_map, ilm_inpainting_mask)
-    # inpaint_rpe = inpaint.inpaint_biharmonic(rpe_depth_map, rpe_inpainting_mask)    
-    # inpaint_ilm = process_array(inpaint_ilm, threshold=0.5)
-    # inpaint_rpe = process_array(inpaint_rpe, threshold=0.6)
-
-    # denormalize
-    inpaint_ilm = (inpaint_ilm) * ilm_depth_map_max
-    inpaint_rpe = (inpaint_rpe) * rpe_depth_map_max
-
-    ilm_points = np.empty((0,3))
-    rpe_points = np.empty((0,3))
-    for i in range(inpaint_ilm.shape[0]):
-        for j in range(inpaint_ilm.shape[1]):
-            # ilm and rpe final points for 3d visualization
-            ilm_point = np.array([i, inpaint_ilm[i, j], j])
-            ilm_points = np.vstack((ilm_points, ilm_point))
-
-            rpe_point = np.array([i, inpaint_rpe[i, j], j])
-            rpe_points = np.vstack((rpe_points, rpe_point))
-
-    return ilm_points, rpe_points
-
-def process_array(array, threshold=0.4, group_size=4):
-    rows, cols = array.shape
-    if cols % group_size != 0:
-        raise ValueError("The number of columns is not divisible by the group size")
-
-    num_groups = cols // group_size
-
-    for i in range(num_groups):
-        group = array[:, i*group_size:(i+1)*group_size]
-
-        valid_values = group[group > threshold]
-        if valid_values.size > 0:
-            average = np.mean(valid_values)
-        else:
-            average = 1
-
-        group[group <= threshold] = average
-
-    return array
-
-def remove_outliers(point_cloud, nb_points=5, radius=4):
-    cl, ind = point_cloud.remove_radius_outlier(nb_points=nb_points, radius=radius)
-    return point_cloud.select_by_index(ind)
-
-def get_largest_cluster(point_cloud, eps=5, min_points=10):
-    labels = np.array(point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=False))
-    largest_cluster_label =  Counter(labels).most_common(1)[0][0]
-    largest_cluster_indices = np.where(labels == largest_cluster_label)
-    return point_cloud.select_by_index(largest_cluster_indices[0])
-
-def find_lowest_point(point_cloud):
-    np_points = np.asarray(point_cloud.points)
-    lowest_index = np.argmax(np_points, axis=0)[2]
-    lowest_coords = np_points[lowest_index, :]
-    return lowest_coords
-
-def needle_cloud_find_needle_tip(needle_point_cloud, return_clean_point_cloud=False):
-    needle_point_cloud = remove_outliers(needle_point_cloud, nb_points=5, radius=10)
-    needle_point_cloud = get_largest_cluster(needle_point_cloud, eps=5, min_points=10)
-    needle_tip_coords = find_lowest_point(needle_point_cloud)
-    if return_clean_point_cloud:
-        return needle_tip_coords, needle_point_cloud
-    else:
-        return needle_tip_coords
+def create_point_cloud_from_vol(seg_volume, seg_index):
+    first_occ_coords, color_vals = get_points_and_colors(seg_volume, values=seg_index)
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(first_occ_coords)
+    point_cloud.colors = o3d.utility.Vector3dVector(color_vals)
+    return point_cloud
 
 def calculate_needle_tip_depth(needle_tip_coords, ilm_coords, rpe_coords):
     needle_tip_depth = needle_tip_coords[1]
@@ -130,14 +46,14 @@ def calculate_needle_tip_depth(needle_tip_coords, ilm_coords, rpe_coords):
     needle_tip_depth_relative_percentage = needle_tip_depth_relative / ilm_rpe_distance
     return needle_tip_depth, needle_tip_depth_relative, needle_tip_depth_relative_percentage
 
-def create_point_cloud_from_vol(seg_volume, seg_index):
-    needle_first_occ_coords, needle_colors = get_points_and_colors(seg_volume, values=seg_index)
-    needle_point_cloud = o3d.geometry.PointCloud()
-    needle_point_cloud.points = o3d.utility.Vector3dVector(needle_first_occ_coords)
-    # needle_colors = np.array([[1, 0, 0] for _ in range(needle_first_occ_coords.shape[0])])
-    needle_point_cloud.colors = o3d.utility.Vector3dVector(needle_colors)
-    return needle_point_cloud
+def find_lowest_point(point_cloud):
+    np_points = np.asarray(point_cloud.points)
+    lowest_index = np.argmax(np_points, axis=0)[2]
+    lowest_coords = np_points[lowest_index, :]
+    return lowest_coords
 
+
+# visualization utilities
 def create_mesh_sphere(center, radius=3, color=[1., 0., 1.]):
     """
     Create a mesh sphere with the given center, radius, and color.
@@ -173,6 +89,53 @@ def create_mesh_cylinder(needle_tip_coords, radius=0.3, height=500):
     ascan_cylinder.transform(transform)
     return ascan_cylinder
 
+def draw_geometries(geos):
+    o3d.visualization.draw_geometries(geos)
+
+
+# pyRANSAC3d needle tip finding
+# create needle point cloud from segmentation results
+# apply RANSAC line to find needle tip
+# remove outliers
+import pyransac3d as pyrsc
+
+def needle_cloud_line_ransac(needle_point_cloud):
+    line_ransac = pyrsc.Line()
+    point_cloud_points = np.asarray(needle_point_cloud.points)
+    line_a, line_b, inlier_indexes = line_ransac.fit(point_cloud_points, thresh=5, maxIteration=1000)
+    line_params = (line_a, line_b)
+    return line_params, inlier_indexes
+
+def find_needle_tip_3d_ransac(needle_point_cloud):
+    line_params, inlier_indexes = needle_cloud_line_ransac(needle_point_cloud)
+    cleaned_needle = needle_point_cloud.select_by_index(inlier_indexes)
+    needle_tip_coords = find_lowest_point(cleaned_needle)
+    return needle_tip_coords, cleaned_needle
+
+
+# initial noise removal + largest connected component for needle idea
+def remove_outliers(point_cloud, nb_points=5, radius=4):
+    cl, ind = point_cloud.remove_radius_outlier(nb_points=nb_points, radius=radius)
+    return point_cloud.select_by_index(ind)
+
+def get_largest_cluster(point_cloud, eps=5, min_points=10):
+    labels = np.array(point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=False))
+    largest_cluster_label =  Counter(labels).most_common(1)[0][0]
+    largest_cluster_indices = np.where(labels == largest_cluster_label)
+    return point_cloud.select_by_index(largest_cluster_indices[0])
+
+def needle_cloud_find_needle_tip(needle_point_cloud, return_clean_point_cloud=False):
+    needle_point_cloud = remove_outliers(needle_point_cloud, nb_points=5, radius=10)
+    needle_point_cloud = get_largest_cluster(needle_point_cloud, eps=5, min_points=10)
+    needle_tip_coords = find_lowest_point(needle_point_cloud)
+    if return_clean_point_cloud:
+        return needle_tip_coords, needle_point_cloud
+    else:
+        return needle_tip_coords
+
+
+# needle point cloud finding based on oriented bounding box angles relative to needle
+# this was not as good as RANSAC registration below
 def create_save_point_cloud(cleaned_needle_point_cloud, 
                             ilm_points,
                             rpe_points,
@@ -209,7 +172,6 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
     vis.run()
     vis.destroy_window()
     vis.capture_screen_image(f'{save_path}/{save_name}.png', True)
-
 
 def cluster_and_visualize_with_oriented_bboxes(pcd, eps=5, min_points=10):
     # Perform Euclidean clustering
@@ -296,39 +258,8 @@ def best_fit_line(points):
     
     return centroid, direction_vector
 
-def create_needle_estimate_pcd(centroid, direction_vector, length=2000, radius=0.5):
-    cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=length)
-    
-    z_axis = np.array([0, 0, 1])
-    v = np.cross(z_axis, direction_vector)
-    s = np.linalg.norm(v)
-    c = np.dot(z_axis, direction_vector)
-    
-    vx = np.array([[0, -v[2], v[1]],
-                   [v[2], 0, -v[0]],
-                   [-v[1], v[0], 0]])
-    
-    rotation_matrix_3x3 = np.eye(3) + vx + vx @ vx * ((1 - c) / (s ** 2))
-    
-    rotation_matrix = np.eye(4)
-    rotation_matrix[:3, :3] = rotation_matrix_3x3
-    
-    translation_matrix = np.eye(4)
-    translation_matrix[:3, 3] = centroid
-    
-    transformation_matrix = translation_matrix @ rotation_matrix
-    cylinder.transform(transformation_matrix)
-    
-    return cylinder.sample_points_uniformly(number_of_points=1000)
 
-def outlier_detection_needle_estimate(needle_point_cloud, needle_estimate_point_cloud, radius=5):
-    distances = needle_point_cloud.compute_point_cloud_distance(needle_estimate_point_cloud)
-    outliers = np.asarray(distances) > radius
-    return needle_point_cloud.select_by_index(np.where(outliers == 1)[0], invert=True)
-
-def draw_geometries(geos):
-    o3d.visualization.draw_geometries(geos)
-
+# open3d RANSAC with cylindrical needle shape estimate
 def preprocess_point_cloud(pcd, voxel_size):
     print(":: Downsample with a voxel size %.3f." % voxel_size)
     pcd_down = pcd.voxel_down_sample(voxel_size)
@@ -367,7 +298,6 @@ def create_cylinder_pcd(radius=4, height=250, number_of_points=400, euler_angles
     pcd.colors = o3d.utility.Vector3dVector(np.array([[0,1,0] for _ in range(number_of_points)]))
     return pcd
 
-
 def register_using_ransac(oct_needle_pcd, cylinder_pcd, voxel_size=0.4):
     target_down, target_fpfh = preprocess_point_cloud(oct_needle_pcd, voxel_size)
     source_down, source_fpfh = preprocess_point_cloud(cylinder_pcd, voxel_size)
@@ -376,3 +306,115 @@ def register_using_ransac(oct_needle_pcd, cylinder_pcd, voxel_size=0.4):
                                                 voxel_size)
     cylinder_pcd.transform(result_ransac.transformation)
     return cylinder_pcd
+
+def create_needle_estimate_pcd(centroid, direction_vector, length=2000, radius=0.5):
+    cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=radius, height=length)
+    
+    z_axis = np.array([0, 0, 1])
+    v = np.cross(z_axis, direction_vector)
+    s = np.linalg.norm(v)
+    c = np.dot(z_axis, direction_vector)
+    
+    vx = np.array([[0, -v[2], v[1]],
+                   [v[2], 0, -v[0]],
+                   [-v[1], v[0], 0]])
+    
+    rotation_matrix_3x3 = np.eye(3) + vx + vx @ vx * ((1 - c) / (s ** 2))
+    
+    rotation_matrix = np.eye(4)
+    rotation_matrix[:3, :3] = rotation_matrix_3x3
+    
+    translation_matrix = np.eye(4)
+    translation_matrix[:3, 3] = centroid
+    
+    transformation_matrix = translation_matrix @ rotation_matrix
+    cylinder.transform(transformation_matrix)
+    
+    return cylinder.sample_points_uniformly(number_of_points=1000)
+
+def outlier_detection_needle_estimate(needle_point_cloud, needle_estimate_point_cloud, radius=5):
+    distances = needle_point_cloud.compute_point_cloud_distance(needle_estimate_point_cloud)
+    outliers = np.asarray(distances) > radius
+    return needle_point_cloud.select_by_index(np.where(outliers == 1)[0], invert=True)
+
+
+# Layer inpainting
+def get_depth_map(volume, seg_index):
+    z_dim, x_dim, _ = volume.shape
+    depth_map = np.zeros((z_dim, x_dim))
+    for z in range(z_dim):
+        for x in range(x_dim):
+            ascan = volume[z, :, x]
+            first_occurrence = np.argwhere(ascan==seg_index)
+            if first_occurrence.size > 0:
+                depth_map[z, x] = first_occurrence[0][0]
+    return depth_map
+
+def inpaint_layers(ilm_depth_map, rpe_depth_map, debug=False):
+    ilm_depth_map_max = ilm_depth_map.max()
+    rpe_depth_map_max = rpe_depth_map.max()
+    # normalize
+    ilm_depth_map = (ilm_depth_map / ilm_depth_map_max)
+    rpe_depth_map = (rpe_depth_map / rpe_depth_map_max)
+    # create inpainting masks
+    ilm_inpainting_mask = np.where(ilm_depth_map == 0, 1, 0).astype(np.uint8)
+    rpe_inpainting_mask = np.where(rpe_depth_map == 0, 1, 0).astype(np.uint8)
+    # inpaint
+    inpaint_ilm = cv2.inpaint(ilm_depth_map.astype(np.float32), ilm_inpainting_mask, 3, cv2.INPAINT_NS)
+    inpaint_rpe = cv2.inpaint(rpe_depth_map.astype(np.float32), rpe_inpainting_mask, 3, cv2.INPAINT_NS)
+    # inpaint_ilm = inpaint.inpaint_biharmonic(ilm_depth_map, ilm_inpainting_mask)
+    # inpaint_rpe = inpaint.inpaint_biharmonic(rpe_depth_map, rpe_inpainting_mask)    
+    # inpaint_ilm = set_outliers_to_mean_value(inpaint_ilm, threshold=0.5)
+    # inpaint_rpe = set_outliers_to_mean_value(inpaint_rpe, threshold=0.6)
+
+    if debug:
+        visualize_inpainting(ilm_depth_map, ilm_inpainting_mask, inpaint_ilm)
+        visualize_inpainting(rpe_depth_map, rpe_inpainting_mask, inpaint_rpe)
+
+    # denormalize
+    inpaint_ilm = (inpaint_ilm) * ilm_depth_map_max
+    inpaint_rpe = (inpaint_rpe) * rpe_depth_map_max
+
+    ilm_points = np.empty((0,3))
+    rpe_points = np.empty((0,3))
+    for i in range(inpaint_ilm.shape[0]):
+        for j in range(inpaint_ilm.shape[1]):
+            # ilm and rpe final points for 3d visualization
+            ilm_point = np.array([i, inpaint_ilm[i, j], j])
+            ilm_points = np.vstack((ilm_points, ilm_point))
+
+            rpe_point = np.array([i, inpaint_rpe[i, j], j])
+            rpe_points = np.vstack((rpe_points, rpe_point))
+
+    return ilm_points, rpe_points
+
+def set_outliers_to_mean_value(array, threshold=0.4, group_size=4):
+    rows, cols = array.shape
+    if cols % group_size != 0:
+        raise ValueError("The number of columns is not divisible by the group size")
+
+    num_groups = cols // group_size
+
+    for i in range(num_groups):
+        group = array[:, i*group_size:(i+1)*group_size]
+
+        valid_values = group[group > threshold]
+        if valid_values.size > 0:
+            average = np.mean(valid_values)
+        else:
+            average = 1
+
+        group[group <= threshold] = average
+
+    return array
+
+def visualize_inpainting(depth_map, mask, inpaint_res):
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(3)
+    axs[0].imshow(depth_map, cmap='gray')
+    axs[0].set_title('Original depth map')
+    axs[1].imshow(mask, cmap='gray')
+    axs[1].set_title('Inpainting mask')
+    axs[2].imshow(inpaint_res, cmap='gray')
+    axs[2].set_title('Inpainting result')
+    plt.show()

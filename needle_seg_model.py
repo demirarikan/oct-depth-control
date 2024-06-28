@@ -22,7 +22,7 @@ class NeedleSegModel():
         self.model.eval()
         print('Model loaded successfully')
 
-    def prepare_vol_from_leica_engine(self, oct_volume, save_train_img=False):
+    def preprocess_volume(self, oct_volume, save_train_img=False):
         oct_volume = oct_volume.transpose(1, 0, 2)
         oct_volume = np.rot90(oct_volume, axes=(1, 2))
         oct_volume = oct_volume.astype(np.float32)
@@ -32,6 +32,10 @@ class NeedleSegModel():
         if save_train_img:
             self.save_volume_images(oct_volume)
         return oct_volume
+    
+    def postprocess_volume(self, seg_volume):
+        seg_volume = seg_volume[:, 12:-12, :]
+        return seg_volume
     
     def segment_volume(self, oct_volume, debug=False):
         with torch.no_grad():
@@ -50,7 +54,7 @@ class NeedleSegModel():
                                                     seg_mask.astype(np.float32), 
                                                     opacity, 
                                                     0)
-                    cv2.imwrite(f'bscan_{timestamp}_{idx}.png', blended_image)
+                    cv2.imwrite(f'debug_seg_images/bscan_{timestamp}_{idx}.png', blended_image)
         return seg_volume
     
     def save_volume_images(self, oct_volume):

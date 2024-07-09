@@ -27,7 +27,7 @@ if __name__ == '__main__':
     #                                yd=dims[1], 
     #                                zd=3.379,
     #                                )
-    leica_reader = MockLeica('/home/demir/Desktop/jhu_project/oct_scans/2.3')
+    leica_reader = MockLeica('/home/demir/Desktop/jhu_project/oct_scans/jun18/2.3')
     print("Leica reader initialized")
 
     while current_depth_relative < target_depth_relative:
@@ -37,6 +37,9 @@ if __name__ == '__main__':
             oct_volume = seg_model.preprocess_volume(oct_volume, save_train_img=False)
             seg_volume = seg_model.segment_volume(oct_volume, debug=True)
             seg_volume = seg_model.postprocess_volume(seg_volume)
+
+
+            inpaint = oct_point_cloud.inpaint_layer(seg_volume)
 
             needle_point_cloud = oct_point_cloud.create_point_cloud_from_vol(seg_volume, seg_index=[1])
 

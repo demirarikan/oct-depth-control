@@ -418,3 +418,21 @@ def visualize_inpainting(depth_map, mask, inpaint_res):
     axs[2].imshow(inpaint_res, cmap='gray')
     axs[2].set_title('Inpainting result')
     plt.show()
+
+def poisson_reconstruction(pcd, depth=9):
+    poisson_mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=depth)
+    return poisson_mesh
+
+def inpaint_layer(volume):
+    layer_pcd = create_point_cloud_from_vol(volume, seg_index=[2])
+    layer_pcd.estimate_normals()
+    radii = [0.005, 0.1, 0.02, 0.04]
+    rec_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(layer_pcd, 
+                                                                               o3d.utility.DoubleVector(radii))
+
+
+    layer_pcd.transform(np.array([[1, 0, 0, 100],
+                                  [0, 1, 0, 0],
+                                  [0, 0, 1, 0],
+                                  [0, 0, 0, 1]]))
+    draw_geometries([rec_mesh, layer_pcd])

@@ -1,5 +1,6 @@
 data/*
 __pycache__
 debug_point_cloud_images/*
+debug_seg_images/*
 weights/*
 train_images

@@ -140,7 +140,8 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
                             ilm_points,
                             rpe_points,
                             needle_tip_coords, 
-                            save_path='debug_point_cloud_images',
+                            show_pcd=False,
+                            save_path='debug_log',
                             save_name='point_cloud'):
     needle_tip_sphere = create_mesh_sphere(needle_tip_coords, radius=3, color=[1., 0., 1.])
     ascan_cylinder = create_mesh_cylinder(needle_tip_coords, radius=0.3, height=500)
@@ -169,9 +170,11 @@ def create_save_point_cloud(cleaned_needle_point_cloud,
     ctr.set_zoom(0.2)
 
     vis.update_renderer()
-    vis.run()
-    vis.destroy_window()
     vis.capture_screen_image(f'{save_path}/{save_name}.png', True)
+    if show_pcd:
+        vis.run()
+        vis.destroy_window()
+    
 
 def cluster_and_visualize_with_oriented_bboxes(pcd, eps=5, min_points=10):
     # Perform Euclidean clustering

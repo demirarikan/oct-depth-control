@@ -8,6 +8,7 @@ class MockLeica():
     def __init__(self, scans_path):
         self.scans = self.get_scans_iterator(scans_path)
         self.current_index = 0
+        print('Mock Leica initialized')
 
     def get_scans_iterator(self, scans_path):
 

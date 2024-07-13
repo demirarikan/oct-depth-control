@@ -1,8 +1,9 @@
-from datetime import datetime
 import os
+from datetime import datetime
 
-import numpy as np
 import cv2
+import numpy as np
+
 
 class Logger():
     def __init__(self, log_dir='debug_log', run_name=datetime.now().strftime('%Y%m%d-%H%M%S')):

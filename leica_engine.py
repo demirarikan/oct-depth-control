@@ -10,14 +10,25 @@ from geometry_msgs.msg import Transform
 
 class LeicaEngine(object):
 
-    def __init__(self, ip_address="192.168.1.75", port_num=2000, n_bscans=100, xd=2.5, yd=2.5, zd=3.379, scale=1, save_dir=None, save_robot_pos=False):
+    def __init__(
+        self,
+        ip_address="192.168.1.75",
+        port_num=2000,
+        n_bscans=100,
+        xd=2.5,
+        yd=2.5,
+        zd=3.379,
+        scale=1,
+        save_dir=None,
+        save_robot_pos=False,
+    ):
 
         # x: n_Ascan in Bsacn dir
         # y: n_Bscans dir
         # z: Ascan dir
         # output: n_bscans*len_ascan*width
 
-        self.max_bytes = 2 ** 16
+        self.max_bytes = 2**16
         self.server_address = (ip_address, port_num)
         self.b_scan_reading = None
         self.n_bscans = n_bscans
@@ -34,7 +45,9 @@ class LeicaEngine(object):
             self.ry = None
             self.rz = None
             self.rw = None
-            self.robot_pos_sub = rospy.Subscriber("/eye_robot/FrameEE", Transform, self.__update_robot_pos)
+            self.robot_pos_sub = rospy.Subscriber(
+                "/eye_robot/FrameEE", Transform, self.__update_robot_pos
+            )
 
         self.__connect__()
         self.active = True
@@ -57,9 +70,11 @@ class LeicaEngine(object):
         _, frame = self.__parse_data__(buf)
         latest_scans = np.zeros((self.n_bscans, frame.shape[0], frame.shape[1]))
         # resized shape is (n_bscans, frame0, frame1)
-        resized_shape = (np.array(latest_scans.shape)*self.scale).astype(int)
+        resized_shape = (np.array(latest_scans.shape) * self.scale).astype(int)
         # resized 1 = (n_bscans, frame0, frame1) BUT N_BSCAN NOT SCALED
-        latest_scans_resized_1 = np.zeros([self.n_bscans, resized_shape[1], resized_shape[2]])
+        latest_scans_resized_1 = np.zeros(
+            [self.n_bscans, resized_shape[1], resized_shape[2]]
+        )
         # resized 2 = n_bscans, frame0, frame1 BUT N_BSCAN SCALED
         latest_scans_resized_2 = np.zeros(resized_shape)
 
@@ -73,13 +88,17 @@ class LeicaEngine(object):
                 start = frame_number
 
             latest_scans[frame_number, :, :] = frame
-            latest_scans_resized_1[frame_number, :, :] = cv2.resize(frame, (resized_shape[2], resized_shape[1]))
+            latest_scans_resized_1[frame_number, :, :] = cv2.resize(
+                frame, (resized_shape[2], resized_shape[1])
+            )
 
             if frame_number == (start - 1) % self.n_bscans:
                 break
 
         for i in range(resized_shape[2]):
-            latest_scans_resized_2[:, :, i] = cv2.resize(latest_scans_resized_1[:, :, i], (resized_shape[1], resized_shape[0]))
+            latest_scans_resized_2[:, :, i] = cv2.resize(
+                latest_scans_resized_1[:, :, i], (resized_shape[1], resized_shape[0])
+            )
 
         latest_scans_resized_2 = np.transpose(latest_scans_resized_2, (2, 0, 1))
         latest_scans_resized_2 = np.flip(latest_scans_resized_2, 1)
@@ -87,7 +106,7 @@ class LeicaEngine(object):
         spacing = spacing[[2, 0, 1]]
 
         return latest_scans_resized_2, spacing
-    
+
     def __update_robot_pos(self, data):
         self.x = data.translation.x
         self.y = data.translation.y
@@ -98,11 +117,11 @@ class LeicaEngine(object):
         self.rw = data.rotation.w
 
     def __calculate_spacing(self, shape):
-            t = np.array(shape)
-            spacing = np.array([self.xd, self.zd, self.yd]) / t
-    
-            return spacing
-    
+        t = np.array(shape)
+        spacing = np.array([self.xd, self.zd, self.yd]) / t
+
+        return spacing
+
     def __disconnect__(self):
 
         self.active = False
@@ -110,7 +129,9 @@ class LeicaEngine(object):
 
     def __connect__(self):
 
-        print(f"Connecting to {self.server_address[0]} and port {self.server_address[1]}")
+        print(
+            f"Connecting to {self.server_address[0]} and port {self.server_address[1]}"
+        )
 
         tries = 0
         connected = False
@@ -120,7 +141,7 @@ class LeicaEngine(object):
                 self.sock.connect(self.server_address)
                 connected = True
             except Exception as e:
-                print(f'No connection. Waiting on server. {tries} Attempts.')
+                print(f"No connection. Waiting on server. {tries} Attempts.")
                 tries += 1
 
         self.active = True
@@ -139,7 +160,7 @@ class LeicaEngine(object):
             try:
                 data = self.sock.recv(self.max_bytes)
             except Exception as e:
-                print('Connection error. Trying to re-establish connection.')
+                print("Connection error. Trying to re-establish connection.")
                 break
 
             if buf is None:
@@ -147,7 +168,7 @@ class LeicaEngine(object):
                     break
 
                 if len(data) < 10:
-                    message = 'Waiting for new frame'
+                    message = "Waiting for new frame"
                     message_bytes = str.encode(message)
                     self.sock.sendall(message_bytes)
                     continue
@@ -156,16 +177,21 @@ class LeicaEngine(object):
 
                 start_pos = 0
                 end_pos = 4
-                dataLabelSize = struct.unpack('I', buf[start_pos:end_pos])[0]
-                dataLabel = struct.unpack('B' * int(dataLabelSize), buf[end_pos:end_pos + int(dataLabelSize)])
-                dataLabel = ''.join([chr(L) for L in dataLabel])
+                dataLabelSize = struct.unpack("I", buf[start_pos:end_pos])[0]
+                dataLabel = struct.unpack(
+                    "B" * int(dataLabelSize),
+                    buf[end_pos : end_pos + int(dataLabelSize)],
+                )
+                dataLabel = "".join([chr(L) for L in dataLabel])
 
                 start_pos = end_pos + int(dataLabelSize)
                 end_pos = start_pos + 4
 
-                if dataLabel == 'EXPECTEDBYTES':
-                    val_length = struct.unpack('I', buf[start_pos:end_pos])[0]
-                    num_expected_bytes = struct.unpack('I', buf[end_pos:end_pos + val_length])[0]
+                if dataLabel == "EXPECTEDBYTES":
+                    val_length = struct.unpack("I", buf[start_pos:end_pos])[0]
+                    num_expected_bytes = struct.unpack(
+                        "I", buf[end_pos : end_pos + val_length]
+                    )[0]
                     start_pos = end_pos + 4
                     end_pos = start_pos + 4
             else:
@@ -174,7 +200,7 @@ class LeicaEngine(object):
             if buf is not None and len(buf) >= num_expected_bytes:
                 break
 
-        message = 'Received frame'
+        message = "Received frame"
         message_bytes = str.encode(message)
         self.sock.sendall(message_bytes)
 
@@ -186,40 +212,42 @@ class LeicaEngine(object):
         start_pos = 0
         end_pos = 4
 
-        while dataLabel != 'ENDFRAMEHEADER':
-            dataLabelSize = struct.unpack('I', buf[start_pos:end_pos])[0]
-            dataLabel = struct.unpack('B' * int(dataLabelSize), buf[end_pos:end_pos + int(dataLabelSize)])
+        while dataLabel != "ENDFRAMEHEADER":
+            dataLabelSize = struct.unpack("I", buf[start_pos:end_pos])[0]
+            dataLabel = struct.unpack(
+                "B" * int(dataLabelSize), buf[end_pos : end_pos + int(dataLabelSize)]
+            )
             start_pos = end_pos + int(dataLabelSize)
             end_pos = start_pos + 4
 
-            dataLabel = ''.join([chr(L) for L in dataLabel])
+            dataLabel = "".join([chr(L) for L in dataLabel])
 
-            if dataLabel == 'ENDFRAMEHEADER':
+            if dataLabel == "ENDFRAMEHEADER":
                 data_start_pos = start_pos + 8
                 break
             else:
-                val_length = struct.unpack('I', buf[start_pos:end_pos])[0]
+                val_length = struct.unpack("I", buf[start_pos:end_pos])[0]
                 if val_length <= 4:
-                    val = struct.unpack('I', buf[end_pos:end_pos + 4])[0]
+                    val = struct.unpack("I", buf[end_pos : end_pos + 4])[0]
                     val_pos = end_pos
                     start_pos = end_pos + 4
                     end_pos = start_pos + 4
                 else:
-                    val = struct.unpack('d', buf[end_pos:end_pos + 8])[0]
+                    val = struct.unpack("d", buf[end_pos : end_pos + 8])[0]
                     val_pos = end_pos
                     start_pos = end_pos + 8
                     end_pos = start_pos + 4
 
-                if dataLabel == 'FRAMENUMBER':
+                if dataLabel == "FRAMENUMBER":
                     frame_number = val
                     frame_number_pos = val_pos
-                if dataLabel == 'FRAMECOUNT':
+                if dataLabel == "FRAMECOUNT":
                     frame_count = val
-                if dataLabel == 'LINECOUNT':
+                if dataLabel == "LINECOUNT":
                     line_count = val
-                if dataLabel == 'LINELENGTH':
+                if dataLabel == "LINELENGTH":
                     line_length = val
-                if dataLabel == 'AIMFRAMES':
+                if dataLabel == "AIMFRAMES":
                     aim_frames = val
 
         frameData = np.zeros((line_length, line_count))
@@ -228,7 +256,9 @@ class LeicaEngine(object):
 
         for i in range(0, line_count):
             start = data_start_pos + i * line_length * 2
-            frameData[:, i] = np.frombuffer(buf[start:start + line_length * 2], dtype='u2', count=line_length)
+            frameData[:, i] = np.frombuffer(
+                buf[start : start + line_length * 2], dtype="u2", count=line_length
+            )
 
         frame = frameData / self.max_bytes
 
@@ -236,12 +266,9 @@ class LeicaEngine(object):
 
     def get_robot_pos(self):
         return [self.x, self.y, self.z, self.rx, self.ry, self.rz, self.rw]
-    
-    def get_b_scan(self, frame_to_save): # frame_to_save(0 for upper, 1 for lower)
+
+    def get_b_scan(self, frame_to_save):  # frame_to_save(0 for upper, 1 for lower)
         buf = self.__get_buffer__()
         frame_number, frame = self.__parse_data__(buf)
-        if (frame_number % 2 == frame_to_save):
+        if frame_number % 2 == frame_to_save:
             return frame
-
-
-        

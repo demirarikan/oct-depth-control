@@ -13,47 +13,23 @@ if not MOCK_MODE:
     from robot_controller import RobotController
 
 
-TARGET_DEPTH_RELATIVE = 0.5
-CURRENT_DEPTH_RELATIVE = 0.0
-ERROR_RANGE = 0.05
-
-N_BSCANS = 5
-DIMS = (0.1, 4)
-
-SAVE_PCD = True
-
-
 def depth_control_loop(
-    target_depth_relative=TARGET_DEPTH_RELATIVE,
-    current_depth_relative=CURRENT_DEPTH_RELATIVE,
-    error_range=ERROR_RANGE,
-    n_bscans=N_BSCANS,
-    dims=DIMS,
-    save_pcd=SAVE_PCD,
+    robot_controller,
+    seg_model,
+    leica_reader,
+    logger,
+    target_depth_relative=0.5,
+    error_range=0.05,
+    save_pcd=True,
 ):
-    seg_model = NeedleSegModel("weights/best_150_val_loss_0.4428_in_retina.pth")
-
-    if MOCK_MODE:
-        leica_reader = MockLeica("/home/demir/Desktop/jhu_project/oct_scans/jun18/2.3")
-    else:
-        rospy.init_node("depth_controller", anonymous=True)
-        robot_controller = RobotController()
-        leica_reader = LeicaEngine(
-            ip_address="192.168.1.75",
-            n_bscans=n_bscans,
-            xd=dims[0],
-            yd=dims[1],
-            zd=3.379,
-        )
-    logger = Logger()
-
+    current_depth_relative = 0.0
     while current_depth_relative < target_depth_relative:
         raw_oct_volume, _ = leica_reader.__get_b_scans_volume__()
 
         logger.log_volume(raw_oct_volume)
 
-        oct_volume = seg_model.preprocess_volume(raw_oct_volume, save_train_img=False)
-        seg_volume = seg_model.segment_volume(oct_volume, debug=False)
+        oct_volume = seg_model.preprocess_volume(raw_oct_volume)
+        seg_volume = seg_model.segment_volume(oct_volume)
         seg_volume = seg_model.postprocess_volume(seg_volume)
 
         logger.log_seg_results(oct_volume, seg_volume)
@@ -121,9 +97,43 @@ def depth_control_loop(
 
 
 if __name__ == "__main__":
+    # Constants
+    TARGET_DEPTH_RELATIVE = 0.5
+    CURRENT_DEPTH_RELATIVE = 0.0
+    ERROR_RANGE = 0.05
+    SAVE_PCD = True
+    # Scan information
+    N_BSCANS = 5
+    DIMS = (0.1, 4)
+
+    seg_model = NeedleSegModel("weights/best_150_val_loss_0.4428_in_retina.pth")
+    logger = Logger()
+
+    if MOCK_MODE:
+        leica_reader = MockLeica("/home/demir/Desktop/jhu_project/oct_scans/jun18/2.3")
+        robot_controller = None
+    else:
+        rospy.init_node("depth_controller", anonymous=True)
+        robot_controller = RobotController()
+        leica_reader = LeicaEngine(
+            ip_address="192.168.1.75",
+            n_bscans=N_BSCANS,
+            xd=DIMS[0],
+            yd=DIMS[1],
+            zd=3.379,
+        )
+
     start_time = time.perf_counter()
     try:
-        depth_control_loop()
-        print(f"Elapsed time: {time.perf_counter() - start_time}")
+        depth_control_loop(
+            robot_controller=robot_controller,
+            seg_model=seg_model,
+            leica_reader=leica_reader,
+            logger=logger,
+            target_depth_relative=TARGET_DEPTH_RELATIVE,
+            error_range=ERROR_RANGE,
+            save_pcd=SAVE_PCD,
+        )
+        print(f"Elapsed time: {time.perf_counter() - start_time:.2f} seconds")
     except KeyboardInterrupt:
         print("KeyboardInterrupt")

@@ -1,5 +1,6 @@
 import rospy
 from geometry_msgs.msg import Vector3, Transform
+from std_msgs.msg import Bool
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -16,6 +17,9 @@ class RobotController:
         )
         self.pub_tip_vel_angular = rospy.Publisher(
             "/eyerobot2/desiredTipVelocitiesAngular", Vector3, queue_size=3
+        )
+        self.pub_cont_stop_sig = rospy.Publisher(
+            "stop_cont_pub", Bool, queue_size=3
         )
         rospy.sleep(0.5)
         self.position = []
@@ -75,10 +79,17 @@ class RobotController:
             self.pub_tip_vel.publish(0, 0, 0)
             rospy.sleep(0.1)
 
+    def start_cont_insertion(self):
+        self.pub_cont_stop_sig.publish(False)
+
+    def stop_cont_insertion(self):
+        self.pub_cont_stop_sig.publish(True)
+
 
 # if __name__ == '__main__':
+#     rospy.init_node('aaaaaa')
 #     controller = RobotController()
-#     controller.move_forward_needle_axis(kp_linear_vel=2, linear_vel=0.1, duration_sec=2)
-# controller.move_backward_needle_axis()
-
-# controller.pub_tip_vel(0,0,0)
+#     time.sleep(1)
+#     controller.start_cont_insertion()
+#     time.sleep(3)
+#     controller.stop_cont_insertion()

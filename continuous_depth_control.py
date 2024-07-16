@@ -3,7 +3,6 @@ import oct_point_cloud
 from logger import Logger
 from mock_leica import MockLeica
 from needle_seg_model import NeedleSegModel
-import multiprocessing
 
 MOCK_MODE = True
 
@@ -14,22 +13,16 @@ if not MOCK_MODE:
     from robot_controller import RobotController
 
 
-def robot_insertion_loop(robot_controller):
-    while not stop_event.is_set():
-        robot_controller.move_forward_needle_axis(
-            kp_linear_vel=1, linear_vel=0.1, duration_sec=1
-        )
-    robot_controller.stop()
-
-
 def depth_control_loop(
+    robot_controller,
     seg_model,
     leica_reader,
     logger,
     target_depth_relative=0.5,
     error_range=0.05,
     save_pcd=True,
-):
+):  
+    robot_controller.start_cont_insertion()
     current_depth_relative = 0.0
     while current_depth_relative < target_depth_relative:
         raw_oct_volume, _ = leica_reader.__get_b_scans_volume__()
@@ -92,11 +85,11 @@ def depth_control_loop(
                 current_depth_relative >= 0
                 and abs(current_depth_relative - target_depth_relative) < error_range
             ):
-                stop_event.set()
+                robot_controller.stop_cont_insertion()
                 # robot_controller.stop()
                 break
 
-    stop_event.set()
+    robot_controller.stop_cont_insertion()
     print(
         f"Current calculated depth: {current_depth_relative}, Target depth: {target_depth_relative}"
     )
@@ -130,11 +123,6 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter()
     try:
-        stop_event = multiprocessing.Event()
-        robot_insertion_process = multiprocessing.Process(
-            target=robot_insertion_loop, args=(robot_controller,)
-        )
-        robot_insertion_process.start()
         depth_control_loop(
             seg_model=seg_model,
             leica_reader=leica_reader,
@@ -143,7 +131,6 @@ if __name__ == "__main__":
             error_range=ERROR_RANGE,
             save_pcd=SAVE_PCD,
         )
-        robot_insertion_process.join()
         print(f"Elapsed time: {time.perf_counter() - start_time:.2f} seconds")
     except KeyboardInterrupt:
         print("KeyboardInterrupt")

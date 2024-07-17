@@ -71,7 +71,7 @@ class Logger:
 
         cv2.putText(
             needle_tip_image,
-            f"Depth: {current_depth:.3f}",
+            f"Relative depth: {current_depth:.3f}",
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,

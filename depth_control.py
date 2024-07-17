@@ -4,7 +4,7 @@ from logger import Logger
 from mock_leica import MockLeica
 from needle_seg_model import NeedleSegModel
 
-MOCK_MODE = True
+MOCK_MODE = False
 
 if not MOCK_MODE:
     import rospy
@@ -22,17 +22,25 @@ def depth_control_loop(
     error_range=0.05,
     save_pcd=True,
 ):
+    
+    # logging flags
+    log_raw_oct = False
+    log_seg_res = False
+    log_final_res = False
+
     current_depth_relative = 0.0
     while current_depth_relative < target_depth_relative:
         raw_oct_volume, _ = leica_reader.__get_b_scans_volume__()
 
-        logger.log_volume(raw_oct_volume)
+        if log_raw_oct:
+            logger.log_volume(raw_oct_volume)
 
         oct_volume = seg_model.preprocess_volume(raw_oct_volume)
         seg_volume = seg_model.segment_volume(oct_volume)
         seg_volume = seg_model.postprocess_volume(seg_volume)
 
-        logger.log_seg_results(oct_volume, seg_volume)
+        if log_seg_res:
+            logger.log_seg_results(oct_volume, seg_volume)
 
         # needle processing
         needle_point_cloud = oct_point_cloud.create_point_cloud_from_vol(
@@ -63,7 +71,8 @@ def depth_control_loop(
             needle_tip_coords, ilm_tip_coords[0], rpe_tip_coords[0]
         )
 
-        logger.log_result_oct(needle_tip_coords, current_depth_relative)
+        if log_final_res:
+            logger.log_result_oct(needle_tip_coords, current_depth_relative)
         print(f"Current depth: {current_depth_relative}")
 
         if save_pcd:
@@ -101,7 +110,7 @@ if __name__ == "__main__":
     TARGET_DEPTH_RELATIVE = 0.5
     CURRENT_DEPTH_RELATIVE = 0.0
     ERROR_RANGE = 0.05
-    SAVE_PCD = True
+    SAVE_PCD = False
     # Scan information
     N_BSCANS = 5
     DIMS = (0.1, 4)

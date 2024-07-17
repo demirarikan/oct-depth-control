@@ -122,7 +122,7 @@ def needle_cloud_line_ransac(needle_point_cloud):
     line_ransac = pyrsc.Line()
     point_cloud_points = np.asarray(needle_point_cloud.points)
     line_a, line_b, inlier_indexes = line_ransac.fit(
-        point_cloud_points, thresh=5, maxIteration=1000
+        point_cloud_points, thresh=5, maxIteration=500
     )
     line_params = (line_a, line_b)
     return line_params, inlier_indexes

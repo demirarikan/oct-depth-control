@@ -1,5 +1,6 @@
 import os
 import re
+import time
 
 import numpy as np
 
@@ -29,6 +30,7 @@ class MockLeica:
         return scans
 
     def __get_b_scans_volume__(self):
+        time.sleep(0.22)
         if self.current_index < len(self.scans):
             scan = self.scans[self.current_index]
             self.current_index += 1

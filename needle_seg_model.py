@@ -30,7 +30,7 @@ class NeedleSegModel:
         return oct_volume
 
     def postprocess_volume(self, seg_volume):
-        seg_volume = seg_volume[:, 12:-12, :]
+        seg_volume = seg_volume[:, 12:-12, :].astype(np.uint8) # convert to uint8 for performance
         return seg_volume
 
     def segment_volume(self, oct_volume):

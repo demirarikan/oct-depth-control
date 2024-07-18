@@ -85,11 +85,3 @@ class RobotController:
     def stop_cont_insertion(self):
         self.pub_cont_stop_sig.publish(True)
 
-
-# if __name__ == '__main__':
-#     rospy.init_node('aaaaaa')
-#     controller = RobotController()
-#     time.sleep(1)
-#     controller.start_cont_insertion()
-#     time.sleep(3)
-#     controller.stop_cont_insertion()

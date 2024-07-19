@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 import pyransac3d as pyrsc
+from skimage.measure import LineModelND, ransac
 from skimage.restoration import inpaint
 
 
@@ -37,19 +38,16 @@ class OctPointCloud:
             output_coordinates.append(coordinates)
 
         return output_coordinates[0], output_coordinates[1], output_coordinates[2]
-
-    def __needle_detection_ransac(self):
+    
+    def __needle_detection_scikit_ransac(self):
         np_needle_points = np.asarray(self.needle_points)
-        line_ransac = pyrsc.Line()
-        line_a, line_b, inlier_indexes = line_ransac.fit(
-            np_needle_points, thresh=5, maxIteration=250
+        _, inliers = ransac(
+            np_needle_points, LineModelND, min_samples=2, residual_threshold=7, max_trials=250
         )
-        line_params = (line_a, line_b)
-        return line_params, inlier_indexes
+        return np_needle_points[inliers]
 
     def find_needle_tip(self):
-        _, inlier_indexes = self.__needle_detection_ransac()
-        cleaned_needle_points = np.take(self.needle_points, inlier_indexes, axis=0)
+        cleaned_needle_points = self.__needle_detection_scikit_ransac()
         self.cleaned_needle_points = cleaned_needle_points
         deepest_point = np.argmax(cleaned_needle_points[:, 1])
         needle_tip_coords = cleaned_needle_points[deepest_point]
@@ -68,7 +66,7 @@ class OctPointCloud:
             depth_map[point[0], point[2]] = point[1]
         return depth_map
 
-    def inpaint_layer(self, depth_map, debug=False):
+    def __inpaint_layer(self, depth_map, debug=False):
         depth_map_max = depth_map.max()
         # normalize
         depth_map = depth_map / depth_map_max
@@ -103,8 +101,8 @@ class OctPointCloud:
         ilm_depth_map = self.__get_depth_map(seg_index=2)
         rpe_depth_map = self.__get_depth_map(seg_index=3)
 
-        inpainted_ilm = self.inpaint_layer(ilm_depth_map, debug)
-        inpainted_rpe = self.inpaint_layer(rpe_depth_map, debug)
+        inpainted_ilm = self.__inpaint_layer(ilm_depth_map, debug)
+        inpainted_rpe = self.__inpaint_layer(rpe_depth_map, debug)
 
         self.ilm_inpaint = inpainted_ilm
         self.rpe_inpaint = inpainted_rpe
@@ -145,11 +143,11 @@ class OctPointCloud:
             cleaned_needle_pcd.paint_uniform_color(color)
         return cleaned_needle_pcd
 
-    def __ilm_pcd(self, inpainted_ilm, color=[0, 1, 0]):
+    def __ilm_pcd(self, color=[0, 1, 0]):
         ilm_points = []
-        for index_x in range(inpainted_ilm.shape[0]):
-            for index_y in range(inpainted_ilm.shape[1]):
-                ilm_points.append([index_x, inpainted_ilm[index_x, index_y], index_y])
+        for index_x in range(self.ilm_inpaint.shape[0]):
+            for index_y in range(self.ilm_inpaint.shape[1]):
+                ilm_points.append([index_x, self.ilm_inpaint[index_x, index_y], index_y])
 
         ilm_pcd = o3d.geometry.PointCloud()
         ilm_pcd.points = o3d.utility.Vector3dVector(ilm_points)
@@ -157,11 +155,11 @@ class OctPointCloud:
             ilm_pcd.paint_uniform_color(color)
         return ilm_pcd
 
-    def __rpe_pcd(self, inpainted_rpe, color=[0, 0, 1]):
+    def __rpe_pcd(self, color=[0, 0, 1]):
         rpe_points = []
-        for index_x in range(inpainted_rpe.shape[0]):
-            for index_y in range(inpainted_rpe.shape[1]):
-                rpe_points.append([index_x, inpainted_rpe[index_x, index_y], index_y])
+        for index_x in range(self.rpe_inpaint.shape[0]):
+            for index_y in range(self.rpe_inpaint.shape[1]):
+                rpe_points.append([index_x, self.rpe_inpaint[index_x, index_y], index_y])
 
         rpe_pcd = o3d.geometry.PointCloud()
         rpe_pcd.points = o3d.utility.Vector3dVector(rpe_points)

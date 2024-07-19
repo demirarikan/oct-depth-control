@@ -35,15 +35,7 @@ class DepthController():
             self.logger.log_result_oct(needle_tip_coords, current_depth_relative)
 
         if save_pcd:
-            oct_pcd.create_save_point_cloud(
-                inpainted_ilm,
-                inpainted_rpe,
-                needle_tip_coords,
-                show_cleaned_needle=True,
-                show_pcd=False,
-                save_path=self.logger.get_pcd_save_dir(),
-                save_name=self.logger.get_pcd_save_name(),
-            )
+            self.logger.save_pcd(oct_pcd, needle_tip_coords)
 
         self.logger.increment_image_count()
         return current_depth_relative

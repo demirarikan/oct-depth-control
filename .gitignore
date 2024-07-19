@@ -2,4 +2,4 @@ data/*
 __pycache__
 debug_log/*
 train_images
-debug_log.zip
+profiling_results/*

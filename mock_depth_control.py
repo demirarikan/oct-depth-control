@@ -32,7 +32,7 @@ if __name__ == "__main__":
         # depth_controller.start_cont_insertion()
         while True:
             current_depth_relative = depth_controller.calculate_depth(
-                log_raw_oct=True, log_seg_res=True, log_final_res=True, save_pcd=True
+                log_raw_oct=False, log_seg_res=False, log_final_res=False, save_pcd=False
             )
             if (
                 current_depth_relative >= 0
@@ -42,7 +42,10 @@ if __name__ == "__main__":
                 print(f"Stopping robot at depth {current_depth_relative}")
                 break
         print(f"Took {time.perf_counter() - start_time:.2f} seconds")
+        logger.save_logs()
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
+        logger.save_logs()
     except StopIteration:
         print("Stopping! Mock Leica out of scans")
+        logger.save_logs()

@@ -20,7 +20,7 @@ if __name__ == "__main__":
     rospy.init_node("depth_controller", anonymous=True)
 
     seg_model = NeedleSegModel("weights/best_150_val_loss_0.4428_in_retina.pth")
-    logger = Logger(run_name="cont_" + datetime.now().strftime("%Y%m%d-%H%M%S"))
+    logger = Logger(run_name="stepwise_" + datetime.now().strftime("%Y%m%d-%H%M%S"))
     robot_controller = RobotController()
     leica_reader = LeicaEngine(
         ip_address="192.168.1.75",
@@ -39,7 +39,6 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter()
     try:
-        depth_controller.start_cont_insertion()
         while True:
             current_depth_relative = depth_controller.calculate_depth(
                 log_raw_oct=True, log_seg_res=True, log_final_res=True, save_pcd=True
@@ -49,8 +48,12 @@ if __name__ == "__main__":
                 and abs(current_depth_relative - TARGET_DEPTH_RELATIVE) < ERROR_RANGE
             ):
                 robot_controller.stop()
-                print(f'Stopping robot at depth {current_depth_relative}')
+                print(f"Stopping robot at depth {current_depth_relative}")
                 break
-        print(f'Took {time.perf_counter() - start_time:.2f} seconds')
+            else:
+                depth_controller.increment_robot(
+                    kp_linear_vel=2, linear_vel=0.1, duration_sec=0.5
+                )
+        print(f"Took {time.perf_counter() - start_time:.2f} seconds")
     except KeyboardInterrupt:
         print("KeyboardInterrupt")

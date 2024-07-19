@@ -38,11 +38,15 @@ class OctPointCloud:
             output_coordinates.append(coordinates)
 
         return output_coordinates[0], output_coordinates[1], output_coordinates[2]
-    
+
     def __needle_detection_scikit_ransac(self):
         np_needle_points = np.asarray(self.needle_points)
         _, inliers = ransac(
-            np_needle_points, LineModelND, min_samples=2, residual_threshold=7, max_trials=250
+            np_needle_points,
+            LineModelND,
+            min_samples=2,
+            residual_threshold=7,
+            max_trials=250,
         )
         return np_needle_points[inliers]
 
@@ -147,7 +151,9 @@ class OctPointCloud:
         ilm_points = []
         for index_x in range(self.ilm_inpaint.shape[0]):
             for index_y in range(self.ilm_inpaint.shape[1]):
-                ilm_points.append([index_x, self.ilm_inpaint[index_x, index_y], index_y])
+                ilm_points.append(
+                    [index_x, self.ilm_inpaint[index_x, index_y], index_y]
+                )
 
         ilm_pcd = o3d.geometry.PointCloud()
         ilm_pcd.points = o3d.utility.Vector3dVector(ilm_points)
@@ -159,7 +165,9 @@ class OctPointCloud:
         rpe_points = []
         for index_x in range(self.rpe_inpaint.shape[0]):
             for index_y in range(self.rpe_inpaint.shape[1]):
-                rpe_points.append([index_x, self.rpe_inpaint[index_x, index_y], index_y])
+                rpe_points.append(
+                    [index_x, self.rpe_inpaint[index_x, index_y], index_y]
+                )
 
         rpe_pcd = o3d.geometry.PointCloud()
         rpe_pcd.points = o3d.utility.Vector3dVector(rpe_points)
@@ -210,24 +218,16 @@ class OctPointCloud:
         ascan_cylinder.transform(transform)
         return ascan_cylinder
 
-    def create_save_point_cloud(
-        self,
-        inpainted_ilm,
-        inpainted_rpe,
-        needle_tip_coords,
-        show_cleaned_needle=True,
-        show_pcd=False,
-        save_path="debug_log",
-        save_name="point_cloud",
+    def create_point_cloud_components(
+        self, needle_tip_coords, show_cleaned_needle=True
     ):
-
         if show_cleaned_needle:
             needle_pcd = self.__cleaned_needle()
         else:
             needle_pcd = self.__needle_pcd()
 
-        ilm_pcd = self.__ilm_pcd(inpainted_ilm)
-        rpe_pcd = self.__rpe_pcd(inpainted_rpe)
+        ilm_pcd = self.__ilm_pcd()
+        rpe_pcd = self.__rpe_pcd()
 
         needle_tip_sphere = self.__create_mesh_sphere(
             needle_tip_coords, radius=3, color=[1.0, 0.0, 1.0]
@@ -235,21 +235,24 @@ class OctPointCloud:
         ascan_cylinder = self.__create_mesh_cylinder(
             needle_tip_coords, radius=0.3, height=500
         )
+        return (needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder)
 
+    def save_pcd_visualization(
+        self,
+        geometries,
+        focus, 
+        show_pcd=False,
+        save_path="debug_log",
+        save_name="point_cloud",
+    ):
         vis = o3d.visualization.Visualizer()
-        vis.create_window()
-        for geo in [
-            needle_pcd,
-            ilm_pcd,
-            rpe_pcd,
-            needle_tip_sphere,
-            ascan_cylinder,
-        ]:
+        vis.create_window(visible=False)
+        for geo in geometries:
             vis.add_geometry(geo)
 
         ctr = vis.get_view_control()
 
-        ctr.set_lookat(needle_tip_coords)
+        ctr.set_lookat(focus)
         ctr.set_up([0, -1, 0])
         ctr.set_front([1, 0, 0])
         ctr.set_zoom(0.2)

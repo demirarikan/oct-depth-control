@@ -159,13 +159,14 @@ class Logger:
 
         if self.pcd_log:
             for image_count, geometries in self.pcd_log.items():
+                pass
                 # TODO: FIX THIS!!!!!! ADD OCT_PCD OBJECT SOMEWHERE
                 # self.logger.save_pcd(
                 #     geometries, needle_tip_coords, image_count=image_count
                 # )
         print("Logs saved!")
 
-    def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.4):
+    def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):
         oct_img_rgb = cv2.cvtColor(oct_img, cv2.COLOR_GRAY2RGB)
         seg_mask = apply_color_map(seg_mask)
         blended_image = cv2.addWeighted(

@@ -56,6 +56,7 @@ if __name__ == "__main__":
                 scan, log_raw_oct=True, log_seg_res=True, log_final_res=True, save_pcd=True
             )
             scan_event.clear()
+            print(f'Current depth relative: {current_depth_relative}')
             if (
                 current_depth_relative >= 0
                 and abs(current_depth_relative - TARGET_DEPTH_RELATIVE) < ERROR_RANGE

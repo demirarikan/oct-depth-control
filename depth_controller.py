@@ -1,15 +1,12 @@
 from oct_point_cloud import OctPointCloud
 
 class DepthController():
-    def __init__(self, leica_reader, robot_controller, seg_model, logger):
-        self.leica_reader = leica_reader
+    def __init__(self, robot_controller, seg_model, logger):
         self.robot_controller = robot_controller
         self.seg_model = seg_model
         self.logger = logger
 
-    def calculate_depth(self, log_raw_oct=False, log_seg_res=False, log_final_res=False, save_pcd=False, verbose=True):
-        raw_oct_volume, _ = self.leica_reader.__get_b_scans_volume__()
-
+    def calculate_depth(self, raw_oct_volume, log_raw_oct=False, log_seg_res=False, log_final_res=False, save_pcd=False, verbose=True):
         if log_raw_oct:
             self.logger.log_volume(raw_oct_volume)
 

@@ -53,4 +53,5 @@ if __name__ == "__main__":
                 break
         print(f'Took {time.perf_counter() - start_time:.2f} seconds')
     except KeyboardInterrupt:
+        robot_controller.stop()
         print("KeyboardInterrupt")

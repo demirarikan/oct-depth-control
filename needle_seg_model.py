@@ -30,12 +30,12 @@ class NeedleSegModel:
         return oct_volume
 
     def postprocess_volume(self, seg_volume):
+        seg_volume = torch.argmax(torch.softmax(seg_volume, dim=1), dim=1)
+        seg_volume = seg_volume.cpu().numpy()
         seg_volume = seg_volume[:, 12:-12, :].astype(np.uint8) # convert to uint8 for performance
         return seg_volume
 
     def segment_volume(self, oct_volume):
         with torch.no_grad():
             seg_volume = self.model(oct_volume)
-            seg_volume = torch.argmax(torch.softmax(seg_volume, dim=1), dim=1)
-            seg_volume = seg_volume.cpu().numpy()
         return seg_volume

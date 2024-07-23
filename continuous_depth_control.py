@@ -3,7 +3,7 @@ from datetime import datetime
 
 import rospy
 
-from depth_controller import DepthController
+from depth_calculator import DepthCalculator
 from leica_engine import LeicaEngine
 from logger import Logger
 from needle_seg_model import NeedleSegModel
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         zd=3.379,
     )
 
-    depth_controller = DepthController(
+    depth_controller = DepthCalculator(
         leica_reader=leica_reader,
         robot_controller=robot_controller,
         seg_model=seg_model,

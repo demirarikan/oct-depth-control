@@ -1,9 +1,9 @@
 import time
 from datetime import datetime
 
-from depth_controller import DepthController
+from depth_calculator import DepthCalculator
 from logger import Logger
-from mock_leica import MockLeica
+from mock_components import MockLeica
 from needle_seg_model import NeedleSegModel
 
 if __name__ == "__main__":
@@ -20,7 +20,7 @@ if __name__ == "__main__":
         "/home/demir/Desktop/jhu_project/oct_scans/debug_log_jul16/cont_20240716-124359/oct_volumes"
     )
 
-    depth_controller = DepthController(
+    depth_controller = DepthCalculator(
         leica_reader=leica_reader,
         robot_controller=None,
         seg_model=seg_model,

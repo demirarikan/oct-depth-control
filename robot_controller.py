@@ -1,6 +1,6 @@
 import rospy
 from geometry_msgs.msg import Vector3, Transform
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -19,6 +19,7 @@ class RobotController:
             "/eyerobot2/desiredTipVelocitiesAngular", Vector3, queue_size=3
         )
         self.pub_cont_stop_sig = rospy.Publisher("stop_cont_pub", Bool, queue_size=3)
+        self.pub_cont_vel = rospy.Publisher("cont_mov_vel", Float64, queue_size=3)
         rospy.sleep(0.5)
         self.position = []
         self.orientation = []

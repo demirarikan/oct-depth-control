@@ -3,6 +3,7 @@ from datetime import datetime
 
 import cv2
 import numpy as np
+import open3d as o3d
 
 
 class Logger:
@@ -10,20 +11,12 @@ class Logger:
         self,
         log_dir="debug_log",
         run_name=datetime.now().strftime("%Y%m%d-%H%M%S"),
-        save_realtime=False,
     ):
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
         self.__run_dir = os.path.join(log_dir, run_name)
         self.__create_save_dirs()
         self.__image_count = 0
-        self.__save_realtime = save_realtime
-
-        # logs
-        self.raw_oct_log = {}
-        self.seg_res_log = {}
-        self.final_res_log = {}
-        self.pcd_log = {}
 
     def __create_save_dirs(self):
         self.oct_volumes_dir = os.path.join(self.__run_dir, "oct_volumes")
@@ -38,31 +31,30 @@ class Logger:
         os.makedirs(self.oct_volumes_dir, exist_ok=True)
         if image_count is None:
             image_count = self.image_count
-        if self.__save_realtime:
-            np.save(
-                os.path.join(self.oct_volumes_dir, f"volume_{image_count}.npy"),
-                volume,
-            )
-        else:
-            self.raw_oct_log[image_count] = volume
+
+        if volume.ndim == 4:
+            volume = volume.cpu().numpy().squeeze()
+
+        np.save(
+            os.path.join(self.oct_volumes_dir, f"volume_{image_count}.npy"),
+            volume,
+        )
 
     def log_seg_results(self, oct_volume, seg_volume, image_count=None):
         os.makedirs(self.seg_images_dir, exist_ok=True)
         if image_count is None:
             image_count = self.image_count
-        if self.__save_realtime:
+
+        if oct_volume.ndim == 4:
             oct_volume = oct_volume.cpu().numpy().squeeze()[:, 12:-12, :] * 255
-            for idx, seg_mask in enumerate(seg_volume):
-                oct_img = oct_volume[idx]
-                blended_image = self.__overlay_seg_results(oct_img, seg_mask)
-                cv2.imwrite(
-                    os.path.join(
-                        self.seg_images_dir, f"vol_{image_count}_img_{idx}.png"
-                    ),
-                    blended_image,
-                )
-        else:
-            self.seg_res_log[image_count] = (oct_volume, seg_volume)
+
+        for idx, seg_mask in enumerate(seg_volume):
+            oct_img = oct_volume[idx]
+            blended_image = self.__overlay_seg_results(oct_img, seg_mask)
+            cv2.imwrite(
+                os.path.join(self.seg_images_dir, f"vol_{image_count}_img_{idx}.png"),
+                blended_image,
+            )
 
     def log_result_oct(
         self,
@@ -76,95 +68,69 @@ class Logger:
         if image_count is None:
             image_count = self.__image_count
 
-        if self.__save_realtime:
-            needle_tip_coords = needle_tip_coords.astype(int)
-            needle_tip_image = oct_volume[needle_tip_coords[0]]
-            needle_tip_seg = seg_volume[needle_tip_coords[0]]
-            blended_image = self.__overlay_seg_results(needle_tip_image, needle_tip_seg)
-            cv2.circle(
-                blended_image,
-                (needle_tip_coords[2], needle_tip_coords[1]),
-                5,
-                (255, 0, 255),
-                -1,
-            )
-            cv2.putText(
-                blended_image,
-                f"Relative depth: {current_depth:.3f}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 255),
-                2,
-            )
-            cv2.imwrite(
-                os.path.join(self.result_oct_dir, f"needle_tip_{image_count}.png"),
-                blended_image,
-            )
-        else:
-            self.final_res_log[image_count] = (
-                oct_volume,
-                seg_volume,
-                needle_tip_coords,
-                current_depth,
-            )
+        if oct_volume.ndim == 4:
+            oct_volume = oct_volume.cpu().numpy().squeeze()[:, 12:-12, :] * 255
 
-    def save_pcd(self, oct_pcd, needle_tip_coords, geometries=None, image_count=None):
+        needle_tip_coords = needle_tip_coords.astype(int)
+        needle_tip_image = oct_volume[needle_tip_coords[0]]
+        needle_tip_seg = seg_volume[needle_tip_coords[0]]
+        blended_image = self.__overlay_seg_results(needle_tip_image, needle_tip_seg)
+        cv2.circle(
+            blended_image,
+            (needle_tip_coords[2], needle_tip_coords[1]),
+            5,
+            (255, 0, 255),
+            -1,
+        )
+        cv2.putText(
+            blended_image,
+            f"Relative depth: {current_depth:.3f}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 255),
+            2,
+        )
+        cv2.imwrite(
+            os.path.join(self.result_oct_dir, f"needle_tip_{image_count}.png"),
+            blended_image,
+        )
+
+    def log_pcd(self, geometries, needle_tip_coords, image_count=None):
         os.makedirs(self.result_pcd_dir, exist_ok=True)
         if image_count is None:
             image_count = self.__image_count
 
-        if geometries is None:
-            geometries = oct_pcd.create_point_cloud_components(
-                needle_tip_coords, show_cleaned_needle=True
-            )
+        vis = o3d.visualization.Visualizer()
+        vis.create_window(visible=False)
+        for geo in geometries:
+            vis.add_geometry(geo)
 
-        if self.__save_realtime:
-            oct_pcd.save_pcd_visualization(
-                geometries,
-                needle_tip_coords,
-                show_pcd=False,
-                save_path=self.result_pcd_dir,
-                save_name=f"pcd_{image_count}",
-            )
-        else:
-            self.pcd_log[image_count] = geometries
+        ctr = vis.get_view_control()
 
-    def save_logs(self):
-        print("Saving logs...")
-        if self.raw_oct_log:
-            for image_count, raw_oct in self.raw_oct_log.items():
-                self.logger.log_volume(raw_oct, image_count=image_count)
+        ctr.set_lookat(needle_tip_coords)
+        ctr.set_up([0, -1, 0])
+        ctr.set_front([1, 0, 0])
+        ctr.set_zoom(0.2)
 
-        if self.seg_res_log:
-            for image_count, (oct_volume, seg_volume) in self.seg_res_log.items():
-                self.logger.log_seg_results(
-                    oct_volume, seg_volume, image_count=image_count
-                )
+        vis.update_renderer()
+        vis.capture_screen_image(f"{self.result_pcd_dir}/pcd_{image_count}.png", True)
 
-        if self.final_res_log:
-            for image_count, (
-                oct_volume,
-                seg_volume,
-                needle_tip_coords,
-                current_depth,
-            ) in self.final_res_log:
-                self.logger.log_result_oct(
-                    oct_volume,
-                    seg_volume,
-                    needle_tip_coords,
-                    current_depth,
-                    image_count=image_count,
-                )
+    def save_logs(self, oct_volumes_dict, seg_volumes_dict, pcd_dict, depths_dict):
+        print(oct_volumes_dict.keys())
+        print(seg_volumes_dict.keys())
+        print(pcd_dict.keys())
+        for count in oct_volumes_dict.keys():
+            oct_volume = oct_volumes_dict[count]
+            seg_volume = seg_volumes_dict[count]
+            geometries = pcd_dict[count]
+            depth = depths_dict[count]
+            needle_tip_coords, geometries = geometries[0], geometries[1:]
 
-        if self.pcd_log:
-            for image_count, geometries in self.pcd_log.items():
-                pass
-                # TODO: FIX THIS!!!!!! ADD OCT_PCD OBJECT SOMEWHERE
-                # self.logger.save_pcd(
-                #     geometries, needle_tip_coords, image_count=image_count
-                # )
-        print("Logs saved!")
+            self.log_volume(oct_volume, count)
+            self.log_seg_results(oct_volume, seg_volume, count)
+            self.log_result_oct(oct_volume, seg_volume, needle_tip_coords, depth, count)
+            self.log_pcd(geometries, needle_tip_coords, count)
 
     def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):
         oct_img_rgb = cv2.cvtColor(oct_img, cv2.COLOR_GRAY2RGB)

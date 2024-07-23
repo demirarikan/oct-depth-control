@@ -13,8 +13,9 @@ class DepthCalculator:
             needle_tip_coords, inpainted_ilm, inpainted_rpe
         )
         if log_final_pcd:
-            self.logger.log_pcd(
-                oct_pcd.create_point_cloud_components(needle_tip_coords)
-            )
-        return current_depth_relative
+            # self.logger.log_pcd(
+            #     oct_pcd.create_point_cloud_components(needle_tip_coords)
+            # )
+            components = oct_pcd.create_point_cloud_components(needle_tip_coords)
+        return current_depth_relative, components
 

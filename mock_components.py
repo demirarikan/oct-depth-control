@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 
-class MockLeica:
+class LeicaEngineMock():
     def __init__(self, scans_path):
         self.scans = self.get_scans_iterator(scans_path)
         self.current_index = 0
@@ -37,3 +37,13 @@ class MockLeica:
             return np.load(scan), None
         else:
             raise StopIteration("No more scans available.")
+
+class RobotControllerMock():
+    def __init__(self):
+        print("Mock Robot Controller initialized")
+
+    def adjust_movement(self, current_depth_relative, target_depth_relative):
+        print(f"Adjusting movement to {current_depth_relative} relative to {target_depth_relative}")
+
+    def stop(self):
+        print("Stopping robot")

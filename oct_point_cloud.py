@@ -235,7 +235,7 @@ class OctPointCloud:
         ascan_cylinder = self.__create_mesh_cylinder(
             needle_tip_coords, radius=0.3, height=500
         )
-        return (needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder)
+        return (needle_tip_coords, needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder)
 
     def save_pcd_visualization(
         self,

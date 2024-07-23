@@ -18,9 +18,7 @@ class RobotController:
         self.pub_tip_vel_angular = rospy.Publisher(
             "/eyerobot2/desiredTipVelocitiesAngular", Vector3, queue_size=3
         )
-        self.pub_cont_stop_sig = rospy.Publisher(
-            "stop_cont_pub", Bool, queue_size=3
-        )
+        self.pub_cont_stop_sig = rospy.Publisher("stop_cont_pub", Bool, queue_size=3)
         rospy.sleep(0.5)
         self.position = []
         self.orientation = []
@@ -84,4 +82,20 @@ class RobotController:
 
     def stop_cont_insertion(self):
         self.pub_cont_stop_sig.publish(True)
+
+    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.05):
+        difference = target_depth - current_depth
+        if difference < threshold:
+            return 0
+        max_vel = 0.5
+        if method == "linear":
+            return min(difference, max_vel)
+        
+        elif method == "exponential":
+            return min(difference**2, max_vel)
+    
+    def adjust_movement(self, current_depth_relative, target_depth_relative, method="linear"):
+        vel = self.__calculate_robot_vel(current_depth_relative, target_depth_relative, method)
+        # TODO: Implement continuous movement subscriber in ROS package
+        self.cont_mov_vel_pub.publish(vel)
 

@@ -117,9 +117,7 @@ class Logger:
         vis.capture_screen_image(f"{self.result_pcd_dir}/pcd_{image_count}.png", True)
 
     def save_logs(self, oct_volumes_dict, seg_volumes_dict, pcd_dict, depths_dict):
-        print(oct_volumes_dict.keys())
-        print(seg_volumes_dict.keys())
-        print(pcd_dict.keys())
+        print('Started saving images')
         for count in oct_volumes_dict.keys():
             oct_volume = oct_volumes_dict[count]
             seg_volume = seg_volumes_dict[count]
@@ -131,6 +129,7 @@ class Logger:
             self.log_seg_results(oct_volume, seg_volume, count)
             self.log_result_oct(oct_volume, seg_volume, needle_tip_coords, depth, count)
             self.log_pcd(geometries, needle_tip_coords, count)
+        print('Done saving images!')
 
     def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):
         oct_img_rgb = cv2.cvtColor(oct_img, cv2.COLOR_GRAY2RGB)

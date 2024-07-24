@@ -119,7 +119,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
 
 if __name__ == "__main__":
-    mock_mode = False
+    mock_mode = True
 
     if not mock_mode:
         import rospy

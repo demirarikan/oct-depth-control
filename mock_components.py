@@ -64,6 +64,15 @@ class LeicaEngineMock():
             return np.load(scan)
         else:
             raise StopIteration("No more scans available.")
+        
+    def fast_get_b_scan_volume(self):
+        time.sleep(0.16)
+        if self.current_index < len(self.scans):
+            scan = self.scans[self.current_index]
+            self.current_index += 1
+            return np.load(scan), None
+        else:
+            raise StopIteration("No more scans available.")
 
 class RobotControllerMock():
     def __init__(self):

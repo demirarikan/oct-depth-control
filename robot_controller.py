@@ -84,19 +84,23 @@ class RobotController:
     def stop_cont_insertion(self):
         self.pub_cont_stop_sig.publish(True)
 
-    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.05):
+    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.1):
         difference = target_depth - current_depth
-        if difference < threshold:
+        if difference < 0.05:
             return 0
-        max_vel = 0.5
+        max_vel = 0.40
         if method == "linear":
-            return min(difference, max_vel)
+            vel = min(difference, max_vel)
         
         elif method == "exponential":
-            return min(difference**2, max_vel)
+            vel = min(difference**2, max_vel)
+
+        if difference < threshold:
+            vel = vel * 0.5
+        
+        return vel
     
     def adjust_movement(self, current_depth_relative, target_depth_relative, method="linear"):
         vel = self.__calculate_robot_vel(current_depth_relative, target_depth_relative, method)
-        # TODO: Implement continuous movement subscriber in ROS package
-        self.cont_mov_vel_pub.publish(vel)
+        self.pub_cont_vel.publish(vel)
 

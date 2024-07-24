@@ -1,6 +1,7 @@
 import queue
 import threading
 from concurrent.futures import ThreadPoolExecutor
+import time
 
 import mock_components
 from depth_calculator import DepthCalculator
@@ -35,6 +36,7 @@ def process_latest_scan(
             condition.wait()
             scan = scan_queue.get()
 
+        start_time = time.perf_counter()
         oct_volume = seg_model.preprocess_volume(scan)
         oct_volumes[count] = oct_volume
         seg_volume = seg_model.segment_volume(oct_volume)
@@ -46,11 +48,13 @@ def process_latest_scan(
             seg_volume, log_final_pcd=True
         )
 
+        print(f'Current relative depth: {current_depth_relative}.')
+
         depths[count] = current_depth_relative
         pcd[count] = geo_components
 
         robot_controller.adjust_movement(current_depth_relative, target_depth_relative)
-
+        print(f'duration: {time.perf_counter() - start_time}')
         count += 1
 
         if (
@@ -97,7 +101,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
 
 if __name__ == "__main__":
-    mock_mode = True
+    mock_mode = False
 
     if not mock_mode:
         import rospy

@@ -11,7 +11,7 @@ from needle_seg_model import NeedleSegModel
 
 def get_b_scan_and_update(leica_reader):
     while True:
-        latest_scan, _ = leica_reader.__get_b_scans_volume__()
+        latest_scan, _ = leica_reader.fast_get_b_scan_volume()
         with condition:
             if scan_queue.full():
                 scan_queue.get()  # Remove the old scan if the queue is full
@@ -40,7 +40,7 @@ def process_latest_scan(
         oct_volume = seg_model.preprocess_volume(scan)
         oct_volumes[count] = oct_volume
         seg_volume = seg_model.segment_volume(oct_volume)
-        # segmentation result is converted to type uint8 for performance!!!
+        # segmentation result is converted to type uint8 for faster processing in the next steps!!!
         seg_volume = seg_model.postprocess_volume(seg_volume)
         seg_volumes[count] = seg_volume
 
@@ -101,7 +101,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
 
 if __name__ == "__main__":
-    mock_mode = False
+    mock_mode = True
 
     if not mock_mode:
         import rospy

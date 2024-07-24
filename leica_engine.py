@@ -63,6 +63,53 @@ class LeicaEngine(object):
             self.latest_complete_scans = latest_volume
             self.latest_spacing = latest_spacing
 
+    
+    def fast_get_b_scan_volume(self):
+        start = None
+
+        buf = self.__get_buffer__()
+        _, frame = self.__parse_data__(buf)
+        latest_scans = np.zeros((self.n_bscans, frame.shape[0], frame.shape[1]))
+        # resized shape is (n_bscans, frame0, frame1)
+        # resized_shape = (np.array(latest_scans.shape) * self.scale).astype(int)
+        # resized 1 = (n_bscans, frame0, frame1) BUT N_BSCAN NOT SCALED
+        # latest_scans_resized_1 = np.zeros(
+        #     [self.n_bscans, resized_shape[1], resized_shape[2]]
+        # )
+        # resized 2 = n_bscans, frame0, frame1 BUT N_BSCAN SCALED
+        # latest_scans_resized_2 = np.zeros(resized_shape)
+
+        spacing = self.__calculate_spacing(latest_scans.shape)
+
+        while True:
+            buf = self.__get_buffer__()
+            frame_number, frame = self.__parse_data__(buf)
+
+            if start is None:
+                start = frame_number
+
+            latest_scans[frame_number, :, :] = frame
+            # latest_scans_resized_1[frame_number, :, :] = cv2.resize(
+            #     frame, (resized_shape[2], resized_shape[1])
+            # )
+
+            if frame_number == (start - 1) % self.n_bscans:
+                break
+
+        # for i in range(resized_shape[2]):
+        #     latest_scans_resized_2[:, :, i] = cv2.resize(
+        #         latest_scans_resized_1[:, :, i], (resized_shape[1], resized_shape[0])
+        #     )
+
+        # latest_scans_resized_2 = np.transpose(latest_scans_resized_2, (2, 0, 1))
+        # latest_scans_resized_2 = np.flip(latest_scans_resized_2, 1)
+        # latest_scans_resized_2 = np.flip(latest_scans_resized_2, 2)
+        spacing = spacing[[2, 0, 1]]
+
+        return latest_scans, spacing
+
+
+    
     def __get_b_scans_volume__(self):
         start = None
 
@@ -272,3 +319,33 @@ class LeicaEngine(object):
         frame_number, frame = self.__parse_data__(buf)
         if frame_number % 2 == frame_to_save:
             return frame
+
+
+if __name__ == "__main__":
+    import time
+    le = LeicaEngine()
+    num_iterations = 50 
+
+    avg_time1 = []
+    avg_time2 = []
+    for i in range(num_iterations):
+        start = time.perf_counter()
+        volume1 = le.__get_b_scans_volume__()
+        end = time.perf_counter()
+        print(f"Time taken: {end-start} seconds")
+        avg_time1.append(end-start)
+
+    for i in range(num_iterations):
+        start = time.perf_counter()
+        volume2 = le.fast_get_b_scan_volume()
+        end = time.perf_counter()
+        print(f"Time taken: {end-start} seconds")
+        avg_time2.append(end-start)
+
+    print(f'shape for method 1: {volume1.shape}')
+    print(f'shape for method 2: {volume2.shape}')
+
+    print(f"Average time for method 1: {sum(avg_time1)/num_iterations}")
+    print(f"Average time for method 2: {sum(avg_time2)/num_iterations}")
+
+

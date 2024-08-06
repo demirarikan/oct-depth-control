@@ -1,0 +1,27 @@
+RELATIVE VS ABSOLUTE DEPTH COMPARISON EXPERIMENTS
+Depths to test: 0.2, 0.3, 0.4, 0.5, 0.6
+
+relative depth control:
+1. Place needle on ilm
+2. Start video recording of b-scans
+3. Start relative depth control process with test depth
+4. Stop video
+5. Take C-scan
+6. start video recording of b-scans 
+7. Validate with bleb
+8. Stop video 
+
+Absolute depth contorl
+1. Place needle on ilm
+2. Take C-scan and calculate target position
+3. start recording video
+4. Move robot to target position
+5. stop video
+6. take C-scan
+7. start taking video
+8. validate with bleb
+9. stop video
+
+Post processing
+On C-scans calculate error between target and real depth
+Make table comparing for each depth the error of depth and bleb accuracy

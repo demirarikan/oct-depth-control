@@ -77,6 +77,7 @@ class RobotController:
         for i in range(10):
             self.pub_tip_vel.publish(0, 0, 0)
             # rospy.sleep(0.1)
+            # rospy.sleep(0.1)
 
     def start_cont_insertion(self):
         self.pub_cont_stop_sig.publish(False)

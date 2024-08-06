@@ -102,7 +102,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
 
 if __name__ == "__main__":
-    mock_mode = True
+    mock_mode = False
 
     if not mock_mode:
         import rospy
@@ -115,5 +115,5 @@ if __name__ == "__main__":
     scan_queue = queue.Queue(maxsize=1)
 
     depth_control_loop(
-        target_depth_relative=0.3, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
+        target_depth_relative=0.4, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
     )

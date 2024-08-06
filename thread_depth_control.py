@@ -11,7 +11,7 @@ from needle_seg_model import NeedleSegModel
 
 def get_b_scan_and_update(leica_reader):
     while True:
-        latest_scan, _ = leica_reader.fast_get_b_scan_volume()
+        latest_scan = leica_reader.fast_get_b_scan_volume()
         with condition:
             if scan_queue.full():
                 scan_queue.get()  # Remove the old scan if the queue is full
@@ -58,8 +58,8 @@ def process_latest_scan(
         count += 1
 
         if (
-            current_depth_relative >= 0
-            and abs(current_depth_relative - target_depth_relative) < error_range
+            (current_depth_relative >= 0
+            and abs(current_depth_relative - target_depth_relative) < error_range)
             or current_depth_relative > target_depth_relative
         ):
             robot_controller.stop()
@@ -101,7 +101,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
 
 if __name__ == "__main__":
-    mock_mode = True
+    mock_mode = False
 
     if not mock_mode:
         import rospy
@@ -114,5 +114,5 @@ if __name__ == "__main__":
     scan_queue = queue.Queue(maxsize=1)
 
     depth_control_loop(
-        target_depth_relative=0.5, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
+        target_depth_relative=0.4, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
     )

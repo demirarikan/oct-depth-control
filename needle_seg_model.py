@@ -23,7 +23,7 @@ class NeedleSegModel:
     def preprocess_volume(self, oct_volume):
         # oct_volume = oct_volume.transpose(1, 0, 2)
         # oct_volume = np.rot90(oct_volume, axes=(1, 2))
-        # oct_volume = oct_volume.astype(np.float32)
+        oct_volume = oct_volume.astype(np.float32)
         oct_volume = torch.tensor(oct_volume).to(self.device)
         oct_volume = transforms.Pad((12, 0, 12, 0))(oct_volume)
         oct_volume = oct_volume.unsqueeze(1)

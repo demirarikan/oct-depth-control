@@ -76,7 +76,7 @@ class RobotController:
     def stop(self):
         for i in range(10):
             self.pub_tip_vel.publish(0, 0, 0)
-            rospy.sleep(0.1)
+            # rospy.sleep(0.1)
 
     def start_cont_insertion(self):
         self.pub_cont_stop_sig.publish(False)
@@ -84,11 +84,11 @@ class RobotController:
     def stop_cont_insertion(self):
         self.pub_cont_stop_sig.publish(True)
 
-    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.1):
+    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.15):
         difference = target_depth - current_depth
         if difference < 0.05:
             return 0
-        max_vel = 0.40
+        max_vel = 0.3
         if method == "linear":
             vel = min(difference, max_vel)
         
@@ -96,7 +96,7 @@ class RobotController:
             vel = min(difference**2, max_vel)
 
         if difference < threshold:
-            vel = vel * 0.5
+            vel = vel * 0.2
         
         return vel
     

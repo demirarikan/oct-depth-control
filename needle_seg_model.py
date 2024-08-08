@@ -2,19 +2,32 @@ import monai
 import numpy as np
 import torch
 from torchvision import transforms
-
+import pickle
 
 class NeedleSegModel:
-    def __init__(self, weights_path):
+    def __init__(self, hparams_path, weights_path):
+        with open(hparams_path, "rb") as f:
+            self.hparams = pickle.load(open(hparams_path, "rb"))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.model = monai.networks.nets.UNet(
             spatial_dims=2,
             in_channels=1,
             out_channels=4,
-            channels=(16, 32, 64, 128, 256, 512),
-            strides=(2, 2, 2, 2, 2),
+            channels=tuple([2**x for x in range(self.hparams["num_channels"][0], self.hparams["num_channels"][1])]),
+            strides=tuple([2] * (self.hparams["num_channels"][1] - self.hparams["num_channels"][0] - 1)),
             kernel_size=3,
+            num_res_units=self.hparams["num_res_units"],
         ).to(self.device)
+
+        # self.model = monai.networks.nets.UNet(
+        #     spatial_dims=2,
+        #     in_channels=1,
+        #     out_channels=4,
+        #     channels=(16, 32, 64, 128, 256, 512),
+        #     strides=(2, 2, 2, 2, 2),
+        #     kernel_size=3,
+        # ).to(self.device)
 
         self.model.load_state_dict(torch.load(weights_path))
         self.model.eval()

@@ -46,7 +46,7 @@ class Logger:
             image_count = self.image_count
 
         if oct_volume.ndim == 4:
-            oct_volume = oct_volume.cpu().numpy().squeeze()[:, 12:-12, :] * 255
+            oct_volume = oct_volume.cpu().numpy().squeeze()[:, :, 12:-12] * 255
 
         for idx, seg_mask in enumerate(seg_volume):
             oct_img = oct_volume[idx]
@@ -69,8 +69,8 @@ class Logger:
             image_count = self.__image_count
 
         if oct_volume.ndim == 4:
-            oct_volume = oct_volume.cpu().numpy().squeeze()[:, 12:-12, :] * 255
-
+            oct_volume = oct_volume.cpu().numpy().squeeze()[:, :, 12:-12] * 255
+        
         needle_tip_coords = needle_tip_coords.astype(int)
         needle_tip_image = oct_volume[needle_tip_coords[0]]
         needle_tip_seg = seg_volume[needle_tip_coords[0]]
@@ -84,7 +84,7 @@ class Logger:
         )
         cv2.putText(
             blended_image,
-            f"Relative depth: {current_depth:.3f}",
+            f"Relative depth: {current_depth:.3f}, Needle tip: {needle_tip_coords[0], needle_tip_coords[2], needle_tip_coords[1]}",
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,

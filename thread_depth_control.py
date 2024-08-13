@@ -49,12 +49,13 @@ def process_latest_scan(
         )
 
         print(f'Current relative depth: {current_depth_relative}.')
+        print(f'duration: {time.perf_counter() - start_time}')
 
         depths[count] = current_depth_relative
         pcd[count] = geo_components
 
         robot_controller.adjust_movement(current_depth_relative, target_depth_relative)
-        print(f'duration: {time.perf_counter() - start_time}')
+        
         count += 1
 
         if (
@@ -114,5 +115,5 @@ if __name__ == "__main__":
     scan_queue = queue.Queue(maxsize=1)
 
     depth_control_loop(
-        target_depth_relative=0.4, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
+        target_depth_relative=0.3, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
     )

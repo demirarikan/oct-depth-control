@@ -118,17 +118,20 @@ class Logger:
 
     def save_logs(self, oct_volumes_dict, seg_volumes_dict, pcd_dict, depths_dict):
         print('Started saving images')
+        needle_tips = []
         for count in oct_volumes_dict.keys():
             oct_volume = oct_volumes_dict[count]
             seg_volume = seg_volumes_dict[count]
             geometries = pcd_dict[count]
             depth = depths_dict[count]
             needle_tip_coords, geometries = geometries[0], geometries[1:]
+            needle_tips.append(needle_tip_coords)
 
             self.log_volume(oct_volume, count)
             self.log_seg_results(oct_volume, seg_volume, count)
             self.log_result_oct(oct_volume, seg_volume, needle_tip_coords, depth, count)
             self.log_pcd(geometries, needle_tip_coords, count)
+        np.savetxt(os.path.join(self.__run_dir, 'needle_tips.csv'), np.array(needle_tips).astype(int), fmt='%i', delimiter=',')
         print('Done saving images!')
 
     def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):

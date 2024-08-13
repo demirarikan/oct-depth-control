@@ -72,7 +72,7 @@ def process_latest_scan(
 def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
     if mock_mode:
         leica_reader = mock_components.LeicaEngineMock(
-            "/home/demir/Desktop/jhu_project/oct_scans/jun18/2.3"
+            "/home/demir/Desktop/jhu_project/oct_scans/jul30/2-depth-cont/oct_volumes"
         )
         robot_controller = mock_components.RobotControllerMock()
     else:
@@ -85,7 +85,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
         )
         robot_controller = RobotController()
 
-    seg_model = NeedleSegModel("weights/best_150_val_loss_0.4428_in_retina.pth")
+    seg_model = NeedleSegModel("weights/dice-focal-hparams.pickle", "weights/dice-focal-best.pth")
     depth_calculator = DepthCalculator(None)
     logger = Logger()
 

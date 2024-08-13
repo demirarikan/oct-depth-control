@@ -53,8 +53,33 @@ class OctPointCloud:
     def find_needle_tip(self):
         cleaned_needle_points = self.__needle_detection_scikit_ransac()
         self.cleaned_needle_points = cleaned_needle_points
-        deepest_point = np.argmax(cleaned_needle_points[:, 1])
-        needle_tip_coords = cleaned_needle_points[deepest_point]
+
+        sidx = np.lexsort(cleaned_needle_points[:, [1, 0]].T)
+        idx = np.append(
+            np.flatnonzero(
+                cleaned_needle_points[1:, 0] > cleaned_needle_points[:-1, 0]
+            ),
+            cleaned_needle_points.shape[0] - 1,
+        )
+        lowest_needle_idx_coords = np.column_stack(
+            (sidx[idx], cleaned_needle_points[sidx[idx]][:, 1])
+        )
+        lowest_needle_idx_coords = lowest_needle_idx_coords[
+            np.argsort(lowest_needle_idx_coords[:, 1])
+        ]
+        try:
+            needle_tip = lowest_needle_idx_coords[
+                np.argwhere(
+                    (
+                        lowest_needle_idx_coords[:, 1][-1]
+                        - lowest_needle_idx_coords[:, 1]
+                    )
+                    <= 30
+                )
+            ][0][0][0]
+        except IndexError:
+            needle_tip = lowest_needle_idx_coords[-1][0]
+        needle_tip_coords = cleaned_needle_points[needle_tip]
         return needle_tip_coords
 
     def __get_depth_map(self, seg_index):
@@ -235,12 +260,19 @@ class OctPointCloud:
         ascan_cylinder = self.__create_mesh_cylinder(
             needle_tip_coords, radius=0.3, height=500
         )
-        return (needle_tip_coords, needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder)
+        return (
+            needle_tip_coords,
+            needle_pcd,
+            ilm_pcd,
+            rpe_pcd,
+            needle_tip_sphere,
+            ascan_cylinder,
+        )
 
     def save_pcd_visualization(
         self,
         geometries,
-        focus, 
+        focus,
         show_pcd=False,
         save_path="debug_log",
         save_name="point_cloud",

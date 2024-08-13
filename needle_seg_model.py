@@ -6,8 +6,7 @@ import pickle
 
 class NeedleSegModel:
     def __init__(self, hparams_path, weights_path):
-        with open(hparams_path, "rb") as f:
-            self.hparams = pickle.load(open(hparams_path, "rb"))
+        
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if hparams_path is not None:

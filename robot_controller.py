@@ -88,7 +88,7 @@ class RobotController:
         difference = target_depth - current_depth
         if difference < 0.05:
             return 0
-        max_vel = 0.3
+        max_vel = 0.37
         if method == "linear":
             vel = min(difference, max_vel)
         
@@ -96,7 +96,7 @@ class RobotController:
             vel = min(difference**2, max_vel)
 
         if difference < threshold:
-            vel = vel * 0.2
+            vel = vel * 0.1
         
         return vel
     

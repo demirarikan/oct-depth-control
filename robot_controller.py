@@ -20,6 +20,7 @@ class RobotController:
         )
         self.pub_cont_stop_sig = rospy.Publisher("stop_cont_pub", Bool, queue_size=3)
         self.pub_cont_vel = rospy.Publisher("cont_mov_vel", Float64, queue_size=3)
+        self.pub_insertion_dir = rospy.Publisher("cont_mov_dir", Bool, queue_size=0) # True: Forward needle axis, False: Backward needle axis
         rospy.sleep(0.5)
         self.position = []
         self.orientation = []
@@ -61,7 +62,6 @@ class RobotController:
         moving_direction = np.matmul(rotation_matrix_current, np.array((0, 0, 1)))
         send_linear_velocity = moving_direction * kp_linear_vel * linear_vel
 
-        start = time.perf_counter()
         for _ in range(int(duration_sec / 0.1)):
             self.pub_tip_vel.publish(
                 send_linear_velocity[0],
@@ -69,14 +69,11 @@ class RobotController:
                 send_linear_velocity[2],
             )
             rospy.sleep(0.1)
-        end = time.perf_counter()
         self.pub_tip_vel.publish(0, 0, 0)
-        print(f"took {end-start}")
 
     def stop(self):
         for i in range(10):
             self.pub_tip_vel.publish(0, 0, 0)
-            # rospy.sleep(0.1)
             # rospy.sleep(0.1)
 
     def start_cont_insertion(self):
@@ -89,19 +86,37 @@ class RobotController:
         difference = target_depth - current_depth
         if difference < 0.05:
             return 0
-        max_vel = 0.37
+        max_vel = 0.1
+        # if method == "linear":
+        #     vel = min(difference, max_vel)
         if method == "linear":
-            vel = min(difference, max_vel)
+            y_intercept = max_vel
+            x_intercept = target_depth
+            vel = min(max_vel, (-(y_intercept/x_intercept) * current_depth) + y_intercept)
+            vel = max(vel, 0)
+
         
         elif method == "exponential":
             vel = min(difference**2, max_vel)
+
+        
 
         if difference < threshold:
             vel = vel * 0.1
         
         return vel
     
-    def adjust_movement(self, current_depth_relative, target_depth_relative, method="linear"):
-        vel = self.__calculate_robot_vel(current_depth_relative, target_depth_relative, method)
-        self.pub_cont_vel.publish(vel)
+    def adjust_movement(self, current_depth_relative, target_depth_relative, error_range=0.05, method="linear"):
+        if current_depth_relative >= target_depth_relative + error_range:
+            self.pub_insertion_dir.publish(False)
+        else:
+            self.pub_insertion_dir.publish(True)
+            vel = self.__calculate_robot_vel(current_depth_relative, target_depth_relative, method)
+            self.pub_cont_vel.publish(vel)
 
+
+# if __name__ == "__main__":
+#     rospy.init_node("rob_cont_test")
+#     cont = RobotController()
+#     time.sleep(3)
+#     cont.poke()

@@ -36,7 +36,7 @@ def process_latest_scan(
             condition.wait()
             scan = scan_queue.get()
 
-        start_time = time.perf_counter()
+        # start_time = time.perf_counter()
         oct_volume = seg_model.preprocess_volume(scan)
         oct_volumes[count] = oct_volume
         seg_volume = seg_model.segment_volume(oct_volume)
@@ -49,24 +49,24 @@ def process_latest_scan(
         )
 
         print(f'Current relative depth: {current_depth_relative}.')
-        print(f'duration: {time.perf_counter() - start_time}')
+        # print(f'duration: {time.perf_counter() - start_time}')
 
         depths[count] = current_depth_relative
         pcd[count] = geo_components
 
-        robot_controller.adjust_movement(current_depth_relative, target_depth_relative)
+        robot_controller.adjust_movement(current_depth_relative, target_depth_relative, error_range=error_range)
         
         count += 1
 
         if (
             (current_depth_relative >= 0
             and abs(current_depth_relative - target_depth_relative) < error_range)
-            or current_depth_relative > target_depth_relative
         ):
-            robot_controller.stop()
+            robot_controller.stop_cont_insertion()
             print(f"Stopping robot at depth {current_depth_relative}")
             logger.save_logs(oct_volumes, seg_volumes, pcd, depths)
             break
+
 
 
 def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
@@ -85,7 +85,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
         )
         robot_controller = RobotController()
 
-    seg_model = NeedleSegModel("weights/dice-focal-hparams.pickle", "weights/dice-focal-best.pth")
+    seg_model = NeedleSegModel(None, "weights/best_150_val_loss_0.4428_in_retina.pth")
     depth_calculator = DepthCalculator(None)
     logger = Logger()
 
@@ -115,5 +115,5 @@ if __name__ == "__main__":
     scan_queue = queue.Queue(maxsize=1)
 
     depth_control_loop(
-        target_depth_relative=0.4, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
+        target_depth_relative=0.5, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
     )

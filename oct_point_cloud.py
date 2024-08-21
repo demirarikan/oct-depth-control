@@ -74,7 +74,7 @@ class OctPointCloud:
                         lowest_needle_idx_coords[:, 1][-1]
                         - lowest_needle_idx_coords[:, 1]
                     )
-                    <= 30
+                    <= 25
                 )
             ][0][0][0]
         except IndexError:

@@ -262,7 +262,7 @@ class OctPointCloud:
         # self.create_before_pcd()
         # self.create_after_pcd()
 
-        o3d.visualization.draw_geometries([needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder, virtual_layer])
+        # o3d.visualization.draw_geometries([needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder, virtual_layer])
 
 
         return (
@@ -272,6 +272,7 @@ class OctPointCloud:
             rpe_pcd,
             needle_tip_sphere,
             ascan_cylinder,
+            virtual_layer
         )
 
     def save_pcd_visualization(

@@ -138,23 +138,6 @@ class OctPointCloud:
 
         return inpainted_ilm, inpainted_rpe
 
-    def calculate_needle_tip_depth(
-        self, needle_tip_coords, inpainted_ilm, inpainted_rpe
-    ):
-        needle_tip_depth = needle_tip_coords[1]
-        ilm_depth = inpainted_ilm[needle_tip_coords[0], needle_tip_coords[2]]
-        rpe_depth = inpainted_rpe[needle_tip_coords[0], needle_tip_coords[2]]
-        ilm_rpe_distance = rpe_depth - ilm_depth
-        needle_tip_depth_relative = needle_tip_depth - ilm_depth
-        needle_tip_depth_relative_percentage = (
-            needle_tip_depth_relative / ilm_rpe_distance
-        )
-        return (
-            needle_tip_depth,
-            needle_tip_depth_relative,
-            needle_tip_depth_relative_percentage,
-        )
-
     # visualization functions
     def __needle_pcd(self, color=[1, 0, 0]):
         needle_pcd = o3d.geometry.PointCloud()
@@ -243,6 +226,20 @@ class OctPointCloud:
         ascan_cylinder.transform(transform)
         return ascan_cylinder
 
+
+    def __virtual_layer(self, depth):
+        ilm_pcd = self.__ilm_pcd()
+        rpe_pcd = self.__rpe_pcd()
+        virtual_pcd = o3d.geometry.PointCloud()
+        virtual_points = []
+        for ilm_point, rpe_point in zip(ilm_pcd.points, rpe_pcd.points):
+            virtual_depth = depth * (rpe_point[1] - ilm_point[1]) + ilm_point[1]
+            virtual_points.append([ilm_point[0], virtual_depth, ilm_point[2]])
+        virtual_pcd.points = o3d.utility.Vector3dVector(virtual_points)
+        virtual_pcd.paint_uniform_color([1, 0, 1])
+        return virtual_pcd
+            
+
     def create_point_cloud_components(
         self, needle_tip_coords, show_cleaned_needle=True
     ):
@@ -260,6 +257,14 @@ class OctPointCloud:
         ascan_cylinder = self.__create_mesh_cylinder(
             needle_tip_coords, radius=0.3, height=500
         )
+
+        virtual_layer = self.__virtual_layer(0.5)
+        # self.create_before_pcd()
+        # self.create_after_pcd()
+
+        o3d.visualization.draw_geometries([needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder, virtual_layer])
+
+
         return (
             needle_tip_coords,
             needle_pcd,
@@ -284,6 +289,9 @@ class OctPointCloud:
 
         ctr = vis.get_view_control()
 
+        # parameters = o3d.io.read_pinhole_camera_parameters("/home/demir/Desktop/jhu_project/oct-depth-control/ScreenCamera_2024-09-06-15-57-52.json")
+        # ctr.convert_from_pinhole_camera_parameters(parameters)
+
         ctr.set_lookat(focus)
         ctr.set_up([0, -1, 0])
         ctr.set_front([1, 0, 0])
@@ -297,3 +305,41 @@ class OctPointCloud:
 
     def draw_geometries(geos):
         o3d.visualization.draw_geometries(geos)
+
+
+    def create_before_pcd(self):
+        import os
+        test_needle, test_ilm, test_rpe = o3d.geometry.PointCloud(), o3d.geometry.PointCloud(), o3d.geometry.PointCloud()
+        test_needle.points = o3d.utility.Vector3dVector(self.needle_points)
+        test_ilm.points = o3d.utility.Vector3dVector(self.ilm_points)
+        test_rpe.points = o3d.utility.Vector3dVector(self.rpe_points)
+        test_needle.paint_uniform_color([1,0,0])
+        test_ilm.paint_uniform_color([0,1,0])
+        test_rpe.paint_uniform_color([0,0,1])
+
+
+        o3d.visualization.draw_geometries([test_needle, test_ilm, test_rpe])
+        
+
+        # should check if name before.png is already taken in images folder
+        # filename_base = "before/before"
+        # filename_ext = ".ply"
+        # filename = f"{filename_base}{filename_ext}"
+        # counter = 1
+
+        # # Increment the number in the filename if the file already exists
+        # while os.path.exists(filename):
+        #     filename = f"{filename_base}_{counter}{filename_ext}"
+        #     counter += 1
+
+
+        # o3d.io.write_point_cloud(filename, test_needle+test_ilm+test_rpe)
+
+    def create_after_pcd(self):
+        test_needle = o3d.geometry.PointCloud()
+        test_needle.points = o3d.utility.Vector3dVector(self.cleaned_needle_points)
+        test_ilm = self.__ilm_pcd()
+        test_rpe = self.__rpe_pcd()
+        test_needle.paint_uniform_color([1,0,0])
+        o3d.io.write_point_cloud("after.ply", test_needle+test_ilm+test_rpe)
+        # o3d.visualization.draw_geometries([test_needle, test_ilm, test_rpe])

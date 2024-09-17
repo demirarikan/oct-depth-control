@@ -24,7 +24,7 @@ class LeicaEngineMock():
         scans = [
             os.path.join(scans_path, scan)
             for scan in os.listdir(scans_path)
-            if scan.startswith("volume_") and scan.endswith("npy")
+            if scan.endswith("npy") #scan.startswith("volume_") and 
         ]
         scans.sort(key=natural_sort_key)
         return scans

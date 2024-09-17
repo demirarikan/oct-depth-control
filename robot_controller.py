@@ -20,7 +20,9 @@ class RobotController:
         )
         self.pub_cont_stop_sig = rospy.Publisher("stop_cont_pub", Bool, queue_size=3)
         self.pub_cont_vel = rospy.Publisher("cont_mov_vel", Float64, queue_size=3)
-        self.pub_insertion_dir = rospy.Publisher("cont_mov_dir", Bool, queue_size=0) # True: Forward needle axis, False: Backward needle axis
+        self.pub_insertion_dir = rospy.Publisher(
+            "cont_mov_dir", Bool, queue_size=0
+        )  # True: Forward needle axis, False: Backward needle axis
         rospy.sleep(0.5)
         self.position = []
         self.orientation = []
@@ -82,36 +84,43 @@ class RobotController:
     def stop_cont_insertion(self):
         self.pub_cont_stop_sig.publish(True)
 
-    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.15):
+    def __calculate_robot_vel(
+        self, current_depth, target_depth, method, threshold=0.15
+    ):
         difference = target_depth - current_depth
         if difference < 0.05:
             return 0
         max_vel = 0.1
-        # if method == "linear":
-        #     vel = min(difference, max_vel)
         if method == "linear":
             y_intercept = max_vel
             x_intercept = target_depth
-            vel = min(max_vel, (-(y_intercept/x_intercept) * current_depth) + y_intercept)
+            vel = min(
+                max_vel, (-(y_intercept / x_intercept) * current_depth) + y_intercept
+            )
             vel = max(vel, 0)
 
-        
         elif method == "exponential":
             vel = min(difference**2, max_vel)
 
-        
-
         if difference < threshold:
             vel = vel * 0.1
-        
+
         return vel
-    
-    def adjust_movement(self, current_depth_relative, target_depth_relative, error_range=0.05, method="linear"):
+
+    def adjust_movement(
+        self,
+        current_depth_relative,
+        target_depth_relative,
+        error_range=0.05,
+        method="linear",
+    ):
         if current_depth_relative >= target_depth_relative + error_range:
             self.pub_insertion_dir.publish(False)
         else:
             self.pub_insertion_dir.publish(True)
-            vel = self.__calculate_robot_vel(current_depth_relative, target_depth_relative, method)
+            vel = self.__calculate_robot_vel(
+                current_depth_relative, target_depth_relative, method
+            )
             self.pub_cont_vel.publish(vel)
 
 

@@ -29,7 +29,7 @@ def process_latest_scan(
     pcd = {}
     count = 0  # image count
 
-    error_range = 0.05
+    error_range = target_depth_relative * 0.05
     print("Processing latest scan")
     while True:
         with condition:
@@ -63,6 +63,7 @@ def process_latest_scan(
             and abs(current_depth_relative - target_depth_relative) < error_range)
         ):
             robot_controller.stop_cont_insertion()
+            robot_controller.stop()
             print(f"Stopping robot at depth {current_depth_relative}")
             logger.save_logs(oct_volumes, seg_volumes, pcd, depths)
             break
@@ -87,7 +88,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
     seg_model = NeedleSegModel(None, "weights/best_150_val_loss_0.4428_in_retina.pth")
     depth_calculator = DepthCalculator(None)
-    logger = Logger()
+    logger = Logger(log_dir="/media/peiyao/SSD1T/demir/debug_log_26_aug")
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         executor.submit(get_b_scan_and_update, leica_reader)
@@ -115,5 +116,5 @@ if __name__ == "__main__":
     scan_queue = queue.Queue(maxsize=1)
 
     depth_control_loop(
-        target_depth_relative=0.5, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
+        target_depth_relative=0.45, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
     )

@@ -82,11 +82,13 @@ class RobotController:
     def stop_cont_insertion(self):
         self.pub_cont_stop_sig.publish(True)
 
-    def __calculate_robot_vel(self, current_depth, target_depth, method, threshold=0.15):
-        difference = target_depth - current_depth
-        if difference < 0.05:
+    def __calculate_robot_vel(self, current_depth, target_depth, method):
+        threshold = target_depth * 0.1
+        difference = abs(target_depth - current_depth)
+        if difference < threshold:
             return 0
-        max_vel = 0.1
+        
+        max_vel = 0.3
         # if method == "linear":
         #     vel = min(difference, max_vel)
         if method == "linear":
@@ -94,15 +96,12 @@ class RobotController:
             x_intercept = target_depth
             vel = min(max_vel, (-(y_intercept/x_intercept) * current_depth) + y_intercept)
             vel = max(vel, 0)
-
         
         elif method == "exponential":
             vel = min(difference**2, max_vel)
 
-        
-
-        if difference < threshold:
-            vel = vel * 0.1
+        # if difference < 0.1:
+        #     vel = vel * 0.1
         
         return vel
     

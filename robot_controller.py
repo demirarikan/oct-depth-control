@@ -9,6 +9,7 @@ import time
 
 class RobotController:
     def __init__(self):
+        # rospy.init_node("robot_controller_depth")
         self.robot_ee_frame_sub = rospy.Subscriber(
             "/eye_robot/FrameEE", Transform, self.update_pos_or
         )
@@ -76,7 +77,7 @@ class RobotController:
     def stop(self):
         for i in range(10):
             self.pub_tip_vel.publish(0, 0, 0)
-            # rospy.sleep(0.1)
+            rospy.sleep(0.01)
 
     def start_cont_insertion(self):
         self.pub_cont_stop_sig.publish(False)
@@ -126,6 +127,23 @@ class RobotController:
             )
             self.pub_cont_vel.publish(vel)
 
+
+    def breath_motion(self, depth_diff):
+        vel_gain = -0.08
+        if depth_diff > 0:
+            vel_gain = -vel_gain
+        curr_pos = self.position
+        target_pos = np.array((curr_pos[0], curr_pos[1], curr_pos[2] - depth_diff))
+        # diff_norm = diff / np.linalg.norm(diff)
+        # linear_vel = diff_norm * vel_gain
+        print(abs(curr_pos[2] - target_pos[2]))
+        if (abs(curr_pos[2] - target_pos[2]) > 0.001):
+            print(f"sending tip vel: {vel_gain}")
+            for i in range(2):
+                self.pub_tip_vel.publish(0, 0, vel_gain)
+        else:
+            print("no motion")
+            self.pub_tip_vel.publish(0,0,0)
 
 # if __name__ == "__main__":
 #     rospy.init_node("rob_cont_test")

@@ -7,10 +7,10 @@ import mock_components
 from depth_calculator import DepthCalculator
 from logger import Logger
 from needle_seg_model import NeedleSegModel
-
+from breating_compensator import BreathingCompensator
 
 def get_b_scan_and_update(leica_reader):
-    while True:
+    while not rospy.is_shutdown():
         latest_scan = leica_reader.fast_get_b_scan_volume()
         with condition:
             if scan_queue.full():
@@ -20,7 +20,7 @@ def get_b_scan_and_update(leica_reader):
 
 
 def process_latest_scan(
-    seg_model, depth_calculator, robot_controller, logger, target_depth_relative
+    seg_model, depth_calculator, robot_controller, logger, target_depth_relative, breathing_compensator
 ):
 
     oct_volumes = {}
@@ -30,43 +30,57 @@ def process_latest_scan(
     count = 0  # image count
 
     error_range = target_depth_relative * 0.05
+
+    breathing_compensation = True
     print("Processing latest scan")
-    while True:
+    while not rospy.is_shutdown():
         with condition:
             condition.wait()
             scan = scan_queue.get()
 
-        # start_time = time.perf_counter()
         oct_volume = seg_model.preprocess_volume(scan)
         oct_volumes[count] = oct_volume
         seg_volume = seg_model.segment_volume(oct_volume)
         # segmentation result is converted to type uint8 for faster processing in the next steps!!!
         seg_volume = seg_model.postprocess_volume(seg_volume)
-        seg_volumes[count] = seg_volume
+        # for i in seg_volume:
+        if not breathing_compensation:
+            seg_volumes[count] = seg_volume
 
-        current_depth_relative, geo_components = depth_calculator.calculate_depth(
-            seg_volume, log_final_pcd=True
-        )
+        if not breathing_compensation:
+            current_depth_relative, geo_components = depth_calculator.calculate_depth(
+                seg_volume, log_final_pcd=True
+            )
 
-        print(f'Current relative depth: {current_depth_relative}.')
-        # print(f'duration: {time.perf_counter() - start_time}')
+            print(f'Current relative depth: {current_depth_relative}.')
+            # print(f'duration: {time.perf_counter() - start_time}')
 
-        depths[count] = current_depth_relative
-        pcd[count] = geo_components
+            depths[count] = current_depth_relative
+            pcd[count] = geo_components
 
-        robot_controller.adjust_movement(current_depth_relative, target_depth_relative, error_range=error_range)
-        
-        count += 1
+            robot_controller.adjust_movement(current_depth_relative, target_depth_relative, error_range=error_range)
+            
+            count += 1
 
-        if (
+            if (
             (current_depth_relative >= 0
             and abs(current_depth_relative - target_depth_relative) < error_range)
-        ):
-            robot_controller.stop_cont_insertion()
-            robot_controller.stop()
-            print(f"Stopping robot at depth {current_depth_relative}")
-            logger.save_logs(oct_volumes, seg_volumes, pcd, depths)
-            break
+            ):
+                robot_controller.stop_cont_insertion()
+                robot_controller.stop()
+                print(f"Stopping robot at depth {current_depth_relative}")
+                print("Starting breathing compensation")
+                breathing_compensation = True
+                # break
+        else:
+            depth_diff = breathing_compensator.calc_breath_motion(seg_volume)
+            robot_controller.breath_motion(depth_diff)
+    robot_controller.stop_cont_insertion()
+    robot_controller.stop()
+    logger.save_logs(oct_volumes, seg_volumes, pcd, depths)
+
+
+        
 
 
 
@@ -88,7 +102,8 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
 
     seg_model = NeedleSegModel(None, "weights/best_150_val_loss_0.4428_in_retina.pth")
     depth_calculator = DepthCalculator(None)
-    logger = Logger(log_dir="/media/peiyao/SSD1T/demir/debug_log_26_aug")
+    logger = Logger(log_dir="/media/peiyao/SSD1T/demir/")
+    breathing_compensator = BreathingCompensator()
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         executor.submit(get_b_scan_and_update, leica_reader)
@@ -99,6 +114,7 @@ def depth_control_loop(target_depth_relative, n_bscans, dims, mock_mode):
             robot_controller,
             logger,
             target_depth_relative,
+            breathing_compensator
         )
 
 
@@ -116,5 +132,5 @@ if __name__ == "__main__":
     scan_queue = queue.Queue(maxsize=1)
 
     depth_control_loop(
-        target_depth_relative=0.45, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
+        target_depth_relative=0.50, n_bscans=5, dims=(0.1, 4), mock_mode=mock_mode
     )

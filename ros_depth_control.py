@@ -1,7 +1,12 @@
 import rospy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
+from std_msgs.msg import Float64, Bool
 from oct_point_cloud import OctPointCloud
+from needle_seg_model import NeedleSegModel
+import numpy as np
+from image_conversion_without_using_ros import image_to_numpy
+import time
 
 
 class ROSDepthControl:
@@ -22,20 +27,22 @@ class ROSDepthControl:
         self.seg_model = seg_model
 
     def b_scan_callback(self, data):
-        b_scan = self.cv_bridge.imgmsg_to_cv2(data, "bgr8")
+        b_scan = image_to_numpy(data)
         self.latest_b5_vol.append(b_scan)
         if len(self.latest_b5_vol) == 5 and not self.insertion_complete:
-            self.latest_b5_vol = np.array(self.latest_b5_vol)
-            seg_vol = self.segment_volume(self.latest_b5_vol)
+            # start_time = time.perf_counter()
+            np_b5_vol = np.array(self.latest_b5_vol)
+            seg_vol = self.segment_volume(np_b5_vol)
             needle_tip_coords, inpainted_ilm, inpainted_rpe = self.process_pcd(seg_vol)
-            needle_depth = self.calculate_needle_depth(
+            _, needle_depth, _, _ = self.calculate_needle_depth(
                 needle_tip_coords, inpainted_ilm, inpainted_rpe
             )
             self.update_insertion_velocity(needle_depth)
             self.latest_b5_vol = []
+            # print(f"Took: {time.perf_counter()-start_time} seconds")
 
     def segment_volume(self, oct_volume):
-        self.seg_model.preprocess_volume(oct_volume)
+        oct_volume = self.seg_model.preprocess_volume(oct_volume)
         seg_volume = self.seg_model.segment_volume(oct_volume)
         seg_volume = self.seg_model.postprocess_volume(seg_volume)
         return seg_volume

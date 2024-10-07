@@ -3,32 +3,32 @@ import plotly.graph_objs as go
 import plotly.io as pio
 
 # Path to CSV file
-csv_path = "motion.csv"
+csv_path = "motion_median.csv"
 
 # Initialize lists for data
 x = []
-y = []
-y2 = []
+robot_z_pos = []
+linear_stage_z_pos = []
 
 # Read CSV data
 with open(csv_path, 'r') as csvfile:
     lines = csv.reader(csvfile, delimiter=',')
-    first_y, first_y2 = None, None
+    first_rob_pos, first_linear_stage_pos = None, None
     for row in lines:
         break
     for row in lines:
-        if not first_y and not first_y2:
-            first_y = float(row[2])
-            first_y2 = float(row[7])
+        if not first_rob_pos and not first_linear_stage_pos:
+            first_rob_pos = float(row[2])
+            first_linear_stage_pos = float(row[7])
         x.append(float(row[8]))
-        y.append(float(row[2])-first_y)
-        y2.append(float(row[7])-first_y2)
+        robot_z_pos.append(-(float(row[2])-first_rob_pos))
+        linear_stage_z_pos.append(float(row[7])-first_linear_stage_pos)
 
 
 
 # Create traces for the two plots
-trace1 = go.Scatter(x=x, y=y, mode='lines', name='Line 1')
-trace2 = go.Scatter(x=x, y=y2, mode='lines', name='Line 2')
+trace1 = go.Scatter(x=x, y=robot_z_pos, mode='lines', name='Line 1')
+trace2 = go.Scatter(x=x, y=linear_stage_z_pos, mode='lines', name='Line 2')
 
 # Create a figure with the two traces
 fig = go.Figure(data=[trace1, trace2])

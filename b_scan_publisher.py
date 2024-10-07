@@ -22,9 +22,9 @@ if __name__ == "__main__":
     rospy.init_node("b_scan_publisher", anonymous=True)
     print("B scan publisher initialized")
 
-    try:
-        while not rospy.is_shutdown():
-            b_scan_img = leica_reader.get_b_scan(frame_to_save=0)
+    while not rospy.is_shutdown():
+        b_scan_img = leica_reader.get_b_scan(frame_to_save=1)
+        if not b_scan_img is None:
             image_message = cv_bridge.cv2_to_imgmsg(b_scan_img * 255)
-    except KeyboardInterrupt:
-        print("Shutting down b scan publisher")
+            b_scan_publisher.publish(image_message)
+    print("Shutting down b scan publisher")

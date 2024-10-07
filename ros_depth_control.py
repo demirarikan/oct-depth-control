@@ -64,7 +64,7 @@ class ROSDepthControl:
 
     def update_insertion_velocity(self, current_depth):
         insertion_vel = self.__calculate_insertion_velocity(current_depth)
-        if insertion_vel = 0:
+        if insertion_vel == 0:
             self.insertion_vel_pub.publish(0)
             self.insertion_stop_pub.publish(True)
             self.insertion_complete = True

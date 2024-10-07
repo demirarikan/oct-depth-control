@@ -4,13 +4,16 @@ from sensor_msgs.msg import Image
 
 from leica_engine import LeicaEngine
 
+N_BSCANS = 5
+DIMS = (0.1, 4)
+
 if __name__ == "__main__":
 
     leica_reader = LeicaEngine(
         ip_address="192.168.1.75",
-        n_bscans=n_bscans,
-        xd=dims[0],
-        yd=dims[1],
+        n_bscans=N_BSCANS,
+        xd=DIMS[0],
+        yd=DIMS[1],
         zd=3.379,
     )
 

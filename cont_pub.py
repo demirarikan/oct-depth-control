@@ -63,7 +63,7 @@ class RobotController:
         self.position = np.array([x, y, z])
         self.orientation = np.array([rx, ry, rz, rw])
 
-    def move_along_needle_axis(self, linear_vel=0.1):'
+    def move_along_needle_axis(self, linear_vel=0.1):
         current_quat = self.orientation
         r_current = R.from_quat(current_quat)
         rotation_matrix_current = r_current.as_matrix()
@@ -85,13 +85,19 @@ class RobotController:
 if __name__ == "__main__":
     rospy.init_node("cont_pub_node")
     rob_cont = RobotController()
+    
+    def shutdown_hook():
+        rob_cont.move_along_needle_axis(linear_vel=0) 
+        rob_cont.stop()                              
+        print("Shutting down continuous insertion controller")
+    rospy.on_shutdown(shutdown_hook)
+    
     print("started robot controller")
 
     while not rospy.is_shutdown():
         if not rob_cont.stop_signal:
             rob_cont.move_along_needle_axis(linear_vel=rob_cont.linear_vel)
+            rospy.sleep(0.01)
         else:
             rob_cont.stop()
 
-    print("rospy shutdown")
-    rob_cont.stop()

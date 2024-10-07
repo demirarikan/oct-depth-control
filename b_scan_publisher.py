@@ -14,7 +14,7 @@ if __name__ == "__main__":
         zd=3.379,
     )
 
-    b_scan_publisher = rospy.Publisher("oct_b_scan", Image, queue_size=0)
+    b_scan_publisher = rospy.Publisher("oct_b_scan", Image, queue_size=1)
     cv_bridge = CvBridge()
     rospy.init_node("b_scan_publisher", anonymous=True)
     print("B scan publisher initialized")

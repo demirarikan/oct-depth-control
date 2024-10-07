@@ -19,11 +19,9 @@ class LeicaEngine(object):
         yd=2.5,
         zd=3.379,
         scale=1,
-        save_dir=None,
-        save_robot_pos=False,
     ):
 
-        # x: n_Ascan in Bsacn dir
+        # x: n_Ascan in Bscan dir
         # y: n_Bscans dir
         # z: Ascan dir
         # output: n_bscans*len_ascan*width
@@ -36,32 +34,9 @@ class LeicaEngine(object):
         self.yd = yd
         self.zd = zd
         self.scale = scale
-        self.save_dir = save_dir
-        if save_robot_pos:
-            self.x = None
-            self.y = None
-            self.z = None
-            self.rx = None
-            self.ry = None
-            self.rz = None
-            self.rw = None
-            self.robot_pos_sub = rospy.Subscriber(
-                "/eye_robot/FrameEE", Transform, self.__update_robot_pos
-            )
 
         self.__connect__()
         self.active = True
-        self.latest_complete_scans = None
-        self.latest_spacing = None
-
-    def __get_b_scans_volume_continously__(self):
-
-        while self.active:
-
-            latest_volume, latest_spacing = self.__get_b_scans_volume__()
-
-            self.latest_complete_scans = latest_volume
-            self.latest_spacing = latest_spacing
     
     def fast_get_b_scan_volume(self):
         start = None
@@ -127,15 +102,6 @@ class LeicaEngine(object):
         spacing = spacing[[2, 0, 1]]
 
         return latest_scans_resized_2, spacing
-
-    def __update_robot_pos(self, data):
-        self.x = data.translation.x
-        self.y = data.translation.y
-        self.z = data.translation.z
-        self.rx = data.rotation.x
-        self.ry = data.rotation.y
-        self.rz = data.rotation.z
-        self.rw = data.rotation.w
 
     def __calculate_spacing(self, shape):
         t = np.array(shape)
@@ -284,9 +250,6 @@ class LeicaEngine(object):
         frame = frameData / self.max_bytes
 
         return frame_number, frame
-
-    def get_robot_pos(self):
-        return [self.x, self.y, self.z, self.rx, self.ry, self.rz, self.rw]
 
     def get_b_scan(self, frame_to_save):  # frame_to_save(0 for upper, 1 for lower)
         buf = self.__get_buffer__()

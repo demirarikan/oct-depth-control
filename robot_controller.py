@@ -89,11 +89,8 @@ class RobotController:
         threshold = target_depth * 0.1
         difference = abs(target_depth - current_depth)
         if difference < threshold:
-            return 0
-        
+            return 0        
         max_vel = 0.3
-        # if method == "linear":
-        #     vel = min(difference, max_vel)
         if method == "linear":
             y_intercept = max_vel
             x_intercept = target_depth
@@ -106,9 +103,8 @@ class RobotController:
         elif method == "exponential":
             vel = min(difference**2, max_vel)
 
-        # if difference < 0.1:
-        #     vel = vel * 0.1
-        
+        if difference < threshold:
+            vel = vel * 0.1        
         return vel
 
     def adjust_movement(

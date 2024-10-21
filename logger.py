@@ -136,6 +136,7 @@ class Logger:
             self.log_pcd(geometries, needle_tip_coords, count)
         col_names = "needle_slice, needle_depth, needle_width, ilm_depth, rpe_depth"
         np.savetxt(os.path.join(self.__run_dir, 'coords.csv'), np.array(coords).astype(int), fmt='%i', delimiter=',', header=col_names)
+
         print('Done saving images!')
 
     def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):

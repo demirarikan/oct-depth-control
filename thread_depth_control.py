@@ -55,6 +55,7 @@ def process_latest_scan(
             print(f'Current relative depth: {current_depth_relative}.')
             # print(f'duration: {time.perf_counter() - start_time}')
 
+
             depths[count] = current_depth_relative
             pcd[count] = geo_components
 

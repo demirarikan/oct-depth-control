@@ -82,15 +82,15 @@ class Logger:
             (255, 0, 255),
             -1,
         )
-        cv2.putText(
-            blended_image,
-            f"Relative depth: {current_depth:.3f}, Needle tip: {needle_tip_coords[0], needle_tip_coords[2], needle_tip_coords[1]}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (255, 0, 255),
-            2,
-        )
+        # cv2.putText(
+        #     blended_image,
+        #     f"Relative depth: {current_depth:.3f}, Needle tip: {needle_tip_coords[0], needle_tip_coords[2], needle_tip_coords[1]}",
+        #     (10, 30),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     1,
+        #     (255, 0, 255),
+        #     2,
+        # )
         cv2.imwrite(
             os.path.join(self.result_oct_dir, f"needle_tip_{image_count}.png"),
             blended_image,
@@ -114,24 +114,29 @@ class Logger:
         ctr.set_zoom(0.2)
 
         vis.update_renderer()
+        # vis.run()
+        # vis.destroy_window()
         vis.capture_screen_image(f"{self.result_pcd_dir}/pcd_{image_count}.png", True)
 
     def save_logs(self, oct_volumes_dict, seg_volumes_dict, pcd_dict, depths_dict):
         print('Started saving images')
-        needle_tips = []
+        coords = []
         for count in oct_volumes_dict.keys():
             oct_volume = oct_volumes_dict[count]
             seg_volume = seg_volumes_dict[count]
             geometries = pcd_dict[count]
             depth = depths_dict[count]
-            needle_tip_coords, geometries = geometries[0], geometries[1:]
-            needle_tips.append(needle_tip_coords)
+            coordinates, geometries = geometries[0:3], geometries[3:]
+            needle_tip_coords = coordinates[2]
+            coords.append(np.append(needle_tip_coords, coordinates[0:2]))
 
             self.log_volume(oct_volume, count)
             self.log_seg_results(oct_volume, seg_volume, count)
             self.log_result_oct(oct_volume, seg_volume, needle_tip_coords, depth, count)
             self.log_pcd(geometries, needle_tip_coords, count)
-        np.savetxt(os.path.join(self.__run_dir, 'needle_tips.csv'), np.array(needle_tips).astype(int), fmt='%i', delimiter=',')
+        col_names = "needle_slice, needle_depth, needle_width, ilm_depth, rpe_depth"
+        np.savetxt(os.path.join(self.__run_dir, 'coords.csv'), np.array(coords).astype(int), fmt='%i', delimiter=',', header=col_names)
+
         print('Done saving images!')
 
     def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):

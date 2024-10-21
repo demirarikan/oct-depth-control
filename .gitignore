@@ -3,4 +3,4 @@ __pycache__
 debug_log/*
 train_images
 profiling_results/*
-images
+images/*

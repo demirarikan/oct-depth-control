@@ -3,6 +3,7 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64, Float32, Bool
 from oct_point_cloud import OctPointCloud
 from needle_seg_model import NeedleSegModel
+from logger import Logger
 import numpy as np
 from image_conversion_without_using_ros import image_to_numpy
 import time
@@ -29,10 +30,13 @@ class ROSDepthControl:
         self.logger = logger
 
         self.log = {
-            "b5_scans": [],
-            "segmented_volumes": [],
-            "needle_tip_coords": [],
-            "layer_depth": [],
+            "b5_scans": [],             # b5 scan volume
+            "segmented_volumes": [],    # segmented volume
+            "needle_tip_coords": [],    # needle tip coordinates
+            "needle_tip_depth": [],     # needle tip depth as percentage of retina thickness
+            "ilm_rpe_z_coords": [],      # ilm and rpe z coordinates at needle tip a-scan
+            "insertion_velocity": [],   # insertion velocity calculated at each step
+            "avg_layer_depth": [],      # average z pos of ilm points for breathing compensation
         }
 
     def b_scan_callback(self, data):
@@ -42,20 +46,27 @@ class ROSDepthControl:
             print("Started B5-scan processing")
             # start_time = time.perf_counter()
             np_b5_vol = np.array(self.latest_b5_vol)
-            self.log["b5_scans"].append(np_b5_vol)
-
             seg_vol = self.segment_volume(np_b5_vol)
-            self.log["segmented_volumes"].append(seg_vol)
-
             needle_tip_coords, inpainted_ilm, inpainted_rpe = self.process_pcd(seg_vol)
-            self.log["needle_tip_coords"].append(needle_tip_coords)
 
             if not self.insertion_complete:
-                _, _, needle_depth, _ = self.calculate_needle_depth(
+
+                self.log["b5_scans"].append(np_b5_vol)
+                self.log["segmented_volumes"].append(seg_vol)
+                self.log["needle_tip_coords"].append(needle_tip_coords)
+
+                _, _, needle_depth, ilm_rpe_z_coords = self.calculate_needle_depth(
                     needle_tip_coords, inpainted_ilm, inpainted_rpe
                 )
                 print(f"Estimated needle depth: {needle_depth}")
-                self.update_insertion_velocity(needle_depth)
+
+                self.log["needle_tip_depth"].append(needle_depth)
+                self.log["ilm_rpe_z_coords"].append(ilm_rpe_z_coords)
+
+                insertion_vel = self.update_insertion_velocity(needle_depth)
+
+                self.log["insertion_velocity"].append(insertion_vel)
+
             self.latest_b5_vol = []
             # print(f"Took: {time.perf_counter()-start_time} seconds")
 
@@ -70,7 +81,7 @@ class ROSDepthControl:
 
         # ROS depth publisher for breathing compensation
         avg_depth = np.median(oct_pcd.ilm_points, axis=0)[1]
-        self.log["layer_depth"].append(avg_depth)
+        self.log["avg_layer_depth"].append(avg_depth)
         self.layer_depth_pub.publish(avg_depth)
 
         needle_tip_coords = oct_pcd.find_needle_tip()
@@ -102,6 +113,7 @@ class ROSDepthControl:
             self.insertion_complete = True
         else:
             self.insertion_vel_pub.publish(insertion_vel)
+        return insertion_vel
 
 
     def __calculate_insertion_velocity(self, current_depth, method="linear"):
@@ -125,13 +137,26 @@ class ROSDepthControl:
         return vel
     
     def log_results(self):
-        self.logger.log_results(self.log)
+        print("Logging results")
+        self.logger.save_b5_scans(self.log["b5_scans"])
+        self.logger.save_segmented_volumes_and_result_oct(self.log["b5_scans"], self.log["segmented_volumes"], self.log["needle_tip_coords"])
+        self.logger.save_csv(self.log["needle_tip_depth"], self.log["ilm_rpe_z_coords"], self.log["insertion_velocity"], self.log["avg_layer_depth"])
+        self.logger.save_pcd(self.log["segmented_volumes"], self.log["needle_tip_coords"])
+        print("Done logging results")
 
 
 if __name__ == "__main__":
     rospy.init_node("depth_control")
+
+    def shutdown_hook():
+        depth_control.log_results()
+        print("Shutting down depth control node")
+
+    rospy.on_shutdown(shutdown_hook)
+
     target_depth = 0.5
     max_vel = 0.3
     seg_model = NeedleSegModel(None, "weights/best_150_val_loss_0.4428_in_retina.pth")
-    depth_control = ROSDepthControl(target_depth, max_vel, seg_model, None)
+    logger = Logger()
+    depth_control = ROSDepthControl(target_depth, max_vel, seg_model, logger)
     rospy.spin()

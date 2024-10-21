@@ -17,6 +17,23 @@ class OctPointCloud:
         self.ilm_inpaint, self.rpe_inpaint = None, None
 
     def __find_first_occurrences(self, seg_volume, labels=[1, 2, 3]):
+        """
+        Finds the first occurrences of specified labels in a segmented volume.
+
+        This method searches through a 3D segmented volume to find the first occurrence
+        of each specified label along the first axis (depth axis). It returns the coordinates
+        of these occurrences for each label.
+
+        Args:
+            seg_volume (np.ndarray): A 3D numpy array representing the segmented volume.
+            labels (list, optional): A list of integer labels to search for in the segmented volume.
+                                     Defaults to [1, 2, 3].
+
+        Returns:
+            tuple: A tuple containing three lists of coordinates. Each list corresponds to the
+                   coordinates of the first occurrences of the respective label in the input list.
+                   The coordinates are in the format [row, depth, column].
+        """
         output_coordinates = []
         for value in labels:
             # Create a mask where the values are equal to the target value
@@ -51,6 +68,15 @@ class OctPointCloud:
         return np_needle_points[inliers]
 
     def find_needle_tip(self):
+        """
+        Finds the coordinates of the needle tip from the detected needle points.
+
+        This method uses RANSAC to clean the detected needle points and then sorts
+        and processes these points to find the lowest needle tip coordinates.
+
+        Returns:
+            numpy.ndarray: The coordinates of the needle tip.
+        """
         cleaned_needle_points = self.__needle_detection_scikit_ransac()
         self.cleaned_needle_points = cleaned_needle_points
 
@@ -83,6 +109,17 @@ class OctPointCloud:
         return needle_tip_coords
 
     def __get_depth_map(self, seg_index):
+        """Create a depth map for the given segmentation index.
+
+        Args:
+            seg_index (int): 2 for ilm, 3 for rpe. Pixel value of the segmentation in the segmentation volume. 
+
+        Raises:
+            ValueError: Invalid segmentation index (anything other than 2 or 3).
+
+        Returns:
+            numpy.array: Array with the top down depth map of the given segmentation index.
+        """
         z_dim, _, x_dim = self.seg_volume.shape
         depth_map = np.zeros((z_dim, x_dim))
         if seg_index == 2:
@@ -96,6 +133,15 @@ class OctPointCloud:
         return depth_map
 
     def __inpaint_layer(self, depth_map, debug=False):
+        """Fill in the gaps in the depth map using OpenCV's inpaint function.
+
+        Args:
+            depth_map (numpy.array): Depth map of the layer to inpaint.
+            debug (bool, optional): Show results in a new window. Defaults to False.
+
+        Returns:
+            numpy.array: Inpainted depth map.
+        """
         depth_map_max = depth_map.max()
         # normalize
         depth_map = depth_map / depth_map_max
@@ -127,6 +173,14 @@ class OctPointCloud:
         return inpaint_res
 
     def inpaint_layers(self, debug=False):
+        """Inpaint the ILM and RPE layers.
+
+        Args:
+            debug (bool, optional): Show the results in a new window. Defaults to False.
+
+        Returns:
+            numpy.array: Inpainted ILM and RPE layers.
+        """
         ilm_depth_map = self.__get_depth_map(seg_index=2)
         rpe_depth_map = self.__get_depth_map(seg_index=3)
 
@@ -138,15 +192,31 @@ class OctPointCloud:
 
         return inpainted_ilm, inpainted_rpe
 
-    # visualization functions
-    def __needle_pcd(self, color=[1, 0, 0]):
+    # point cloud creation utilities
+    def __create_needle_pcd(self, color=[1, 0, 0]):
+        """Create open3D point cloud for the needle.
+
+        Args:
+            color (list, optional): Colors of the points. Defaults to [1, 0, 0].
+
+        Returns:
+            open3d.geometry.PointCloud: Point cloud object for the raw needle.
+        """
         needle_pcd = o3d.geometry.PointCloud()
         needle_pcd.points = o3d.utility.Vector3dVector(self.needle_points)
         if color:
             needle_pcd.paint_uniform_color(color)
         return needle_pcd
 
-    def __cleaned_needle(self, color=[1, 0, 0]):
+    def __create_cleaned_needle_pcd(self, color=[1, 0, 0]):
+        """Create open3D point cloud for the needle with the outliers removed.
+
+        Args:
+            color (list, optional): Colors of the points. Defaults to [1, 0, 0].
+
+        Returns:
+            open3d.geometry.PointCloud: Point cloud object for the cleaned needle.
+        """
         cleaned_needle_pcd = o3d.geometry.PointCloud()
         cleaned_needle_pcd.points = o3d.utility.Vector3dVector(
             self.cleaned_needle_points
@@ -155,7 +225,15 @@ class OctPointCloud:
             cleaned_needle_pcd.paint_uniform_color(color)
         return cleaned_needle_pcd
 
-    def __ilm_pcd(self, color=[0, 1, 0]):
+    def __create_ilm_pcd(self, color=[0, 1, 0]):
+        """Create open3d point cloud object for the ilm layer.
+
+        Args:
+            color (list, optional): Color of the points in the point cloud. Defaults to [0, 1, 0].
+
+        Returns:
+            open3d.geometry.PointCloud: Point cloud object for the ilm layer.
+        """
         ilm_points = []
         for index_x in range(self.ilm_inpaint.shape[0]):
             for index_y in range(self.ilm_inpaint.shape[1]):
@@ -169,7 +247,15 @@ class OctPointCloud:
             ilm_pcd.paint_uniform_color(color)
         return ilm_pcd
 
-    def __rpe_pcd(self, color=[0, 0, 1]):
+    def __create_rpe_pcd(self, color=[0, 0, 1]):
+        """Create open3d point cloud object for the RPE layer.
+
+        Args:
+            color (list, optional): Color of the points in the point cloud. Defaults to [0, 0, 1].
+
+        Returns:
+            open3d.geometry.PointCloud: Point cloud object for the RPE layer.
+        """
         rpe_points = []
         for index_x in range(self.rpe_inpaint.shape[0]):
             for index_y in range(self.rpe_inpaint.shape[1]):
@@ -183,7 +269,6 @@ class OctPointCloud:
             rpe_pcd.paint_uniform_color(color)
         return rpe_pcd
 
-    # visualization utilities
     def __create_mesh_sphere(self, center, radius=3, color=[1.0, 0.0, 1.0]):
         """
         Create a mesh sphere with the given center, radius, and color.
@@ -212,6 +297,16 @@ class OctPointCloud:
         return mesh_sphere
 
     def __create_mesh_cylinder(self, needle_tip_coords, radius=0.3, height=500):
+        """Creates vertical cylinder mesh to visualize A-scan going through the needle tip.
+
+        Args:
+            needle_tip_coords (array): Position of the mesh.
+            radius (float, optional): Radius of the cylinder. Defaults to 0.3.
+            height (int, optional): Height of the cylinder. Defaults to 500.
+
+        Returns:
+            open3d.TriangleMesh: Mesh cylinder to visualize the A-scan.
+        """
         ascan_cylinder = o3d.geometry.TriangleMesh.create_cylinder(
             radius=radius, height=height
         )
@@ -226,8 +321,15 @@ class OctPointCloud:
         ascan_cylinder.transform(transform)
         return ascan_cylinder
 
+    def __create_virtual_layer(self, depth):
+        """Creates the open3d point cloud object for the virtual target layer.
 
-    def __virtual_layer(self, depth):
+        Args:
+            depth (float): Target depth of the virtual layer.
+
+        Returns:
+            open3d.geometry.PointCloud: Point cloud object for the virtual target layer.
+        """
         ilm_pcd = self.__ilm_pcd()
         rpe_pcd = self.__rpe_pcd()
         virtual_pcd = o3d.geometry.PointCloud()
@@ -239,17 +341,25 @@ class OctPointCloud:
         virtual_pcd.paint_uniform_color([1, 0, 1])
         return virtual_pcd
             
-
     def create_point_cloud_components(
         self, needle_tip_coords, show_cleaned_needle=True
     ):
-        if show_cleaned_needle:
-            needle_pcd = self.__cleaned_needle()
-        else:
-            needle_pcd = self.__needle_pcd()
+        """Create open3d components for the final point cloud visualization
 
-        ilm_pcd = self.__ilm_pcd()
-        rpe_pcd = self.__rpe_pcd()
+        Args:
+            needle_tip_coords (list): Needle tip coordinates that will be marked with a sphere and cylinder.
+            show_cleaned_needle (bool, optional): Show needle with the outliers removed after RANSAC. Defaults to True.
+
+        Returns:
+            _type_: _description_
+        """
+        if show_cleaned_needle:
+            needle_pcd = self.__create_cleaned_needle_pcd()
+        else:
+            needle_pcd = self.__create_needle_pcd()
+
+        ilm_pcd = self.__create_ilm_pcd()
+        rpe_pcd = self.__create_rpe_pcd()
 
         needle_tip_sphere = self.__create_mesh_sphere(
             needle_tip_coords, radius=3, color=[1.0, 0.0, 1.0]
@@ -258,12 +368,11 @@ class OctPointCloud:
             needle_tip_coords, radius=0.3, height=500
         )
 
-        virtual_layer = self.__virtual_layer(0.5)
+        virtual_layer = self.__create_virtual_layer(0.5)
         # self.create_before_pcd()
         # self.create_after_pcd()
 
         # o3d.visualization.draw_geometries([needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder, virtual_layer])
-
 
         return (
             needle_tip_coords,
@@ -283,6 +392,15 @@ class OctPointCloud:
         save_path="debug_log",
         save_name="point_cloud",
     ):
+        """Generate and save a snapshot of the given geometries.
+
+        Args:
+            geometries (list): List of open3d geometries to visualize.
+            focus (list): Camera focus point (usually the needle tip).
+            show_pcd (bool, optional): Show the point cloud in a window. Defaults to False.
+            save_path (str, optional): Path to save the snapshot. Defaults to "debug_log".
+            save_name (str, optional): Name of the saved image file. Defaults to "point_cloud".
+        """
         vis = o3d.visualization.Visualizer()
         vis.create_window(visible=False)
         for geo in geometries:
@@ -306,7 +424,6 @@ class OctPointCloud:
 
     def draw_geometries(geos):
         o3d.visualization.draw_geometries(geos)
-
 
     def create_before_pcd(self):
         import os

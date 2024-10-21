@@ -351,7 +351,8 @@ class OctPointCloud:
             show_cleaned_needle (bool, optional): Show needle with the outliers removed after RANSAC. Defaults to True.
 
         Returns:
-            _type_: _description_
+            tuple: Tuple of needle tip coordinates, point clouds for the needle, ILM, and RPE layers, virtual target 
+            layer and the meshes for needle tip sphere and A-scan cylinder.
         """
         if show_cleaned_needle:
             needle_pcd = self.__create_cleaned_needle_pcd()

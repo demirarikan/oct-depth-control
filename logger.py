@@ -1,9 +1,12 @@
 import os
 from datetime import datetime
+import csv
+import itertools
 
 import cv2
 import numpy as np
 import open3d as o3d
+from oct_point_cloud import OctPointCloud
 
 
 class Logger:
@@ -15,14 +18,11 @@ class Logger:
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
         self.__run_dir = os.path.join(log_dir, run_name)
-        self.__create_save_dirs()
-        self.__image_count = 0
-
-    def __create_save_dirs(self):
         self.oct_volumes_dir = os.path.join(self.__run_dir, "oct_volumes")
         self.seg_images_dir = os.path.join(self.__run_dir, "seg_images")
         self.result_oct_dir = os.path.join(self.__run_dir, "result_oct")
         self.result_pcd_dir = os.path.join(self.__run_dir, "result_pcd")
+        self.__image_count = 0        
 
     def increment_image_count(self):
         self.__image_count += 1
@@ -148,6 +148,59 @@ class Logger:
         return blended_image
 
 
+# ===============================================  NEW LOGGER  =========================================================
+
+    def save_b5_scans(self, b5_scans: list):
+        os.makedirs(self.oct_volumes_dir, exist_ok=True)
+        for idx, volume in enumerate(b5_scans):
+            np.save(
+                os.path.join(self.oct_volumes_dir, f"volume_{idx}.npy"),
+                volume,
+            )
+
+    def save_segmented_volumes_and_result_oct(self, b5_scans: list, segmented_volumes: list, needle_tip_coords: list):
+        os.makedirs(self.seg_images_dir, exist_ok=True)
+        os.makedirs(self.result_oct_dir, exist_ok=True)
+        for vol_idx, (oct_vol, seg_vol, needle_coord) in enumerate(zip(b5_scans, segmented_volumes, needle_tip_coords)):
+            # convert needle tip coordinates to int otherwise cv2.circle will throw error
+            needle_coord = needle_coord.astype(int)
+            for img_idx, b_scan in enumerate(oct_vol):
+                blended_image = self.__overlay_seg_results(b_scan, seg_vol[img_idx])
+                cv2.imwrite(
+                    os.path.join(self.seg_images_dir, f"vol_{vol_idx}_img_{img_idx}.png"),
+                    blended_image,
+                )
+                # save results OCT with needle tip marked
+                if needle_coord[0] == img_idx:
+                    cv2.circle(
+                        blended_image,
+                        (needle_coord[2], needle_coord[1]),
+                        5,
+                        (255, 0, 255),
+                        -1,
+                    )
+                    cv2.imwrite(
+                        os.path.join(self.result_oct_dir, f"needle_tip_{vol_idx}.png"),
+                        blended_image,
+                    )
+
+    def save_csv(self, needle_tip_depths: list, ilm_rpe_z_coords: list, insertion_vel: list, avg_layer_depth: list):
+        with open(os.path.join(self.__run_dir, "insertion_data.csv"), mode="w") as insertion_csv:
+            writer = csv.writer(insertion_csv, delimiter=',')
+            writer.writerow(["needle_tip_depth", "ilm_z_coord", "rpe_z_coord", "insertion_velocity", "avg_layer_depth"])
+            for (needle_tip_depth, ilm_rpe_z_coord, insertion_velocity, layer_depth) in itertools.zip_longest(needle_tip_depths, ilm_rpe_z_coords, insertion_vel, avg_layer_depth):
+                writer.writerow([needle_tip_depth, ilm_rpe_z_coord[0], ilm_rpe_z_coord[1], insertion_velocity, layer_depth])
+
+    def save_pcd(self, seg_volumes: list, needle_tip_coords: list):
+        for vol_idx, (seg_vol, needle_tip_coord) in enumerate(zip(seg_volumes, needle_tip_coords)):
+            oct_pcd = OctPointCloud(seg_vol)
+            _ = oct_pcd.find_needle_tip()
+            _, _ = oct_pcd.inpaint_layers()
+            geometries = oct_pcd.create_point_cloud_components(needle_tip_coord)
+            oct_pcd.save_pcd_visualization(geometries, needle_tip_coord, show_pcd=False, save_path=self.result_pcd_dir, save_name=f"pcd_{vol_idx}")
+
+
+# Helper function to apply color map to segmented mask
 def apply_color_map(seg_mask):
     color_image = np.zeros((seg_mask.shape[0], seg_mask.shape[1], 3), dtype=np.uint8)
 

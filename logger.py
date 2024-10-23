@@ -140,6 +140,7 @@ class Logger:
         print('Done saving images!')
 
     def __overlay_seg_results(self, oct_img, seg_mask, opacity=0.6):
+        oct_img = oct_img.astype(np.float32)
         oct_img_rgb = cv2.cvtColor(oct_img, cv2.COLOR_GRAY2RGB)
         seg_mask = apply_color_map(seg_mask)
         blended_image = cv2.addWeighted(
@@ -188,10 +189,15 @@ class Logger:
         with open(os.path.join(self.__run_dir, "insertion_data.csv"), mode="w") as insertion_csv:
             writer = csv.writer(insertion_csv, delimiter=',')
             writer.writerow(["needle_tip_depth", "ilm_z_coord", "rpe_z_coord", "insertion_velocity", "avg_layer_depth"])
-            for (needle_tip_depth, ilm_rpe_z_coord, insertion_velocity, layer_depth) in itertools.zip_longest(needle_tip_depths, ilm_rpe_z_coords, insertion_vel, avg_layer_depth):
-                writer.writerow([needle_tip_depth, ilm_rpe_z_coord[0], ilm_rpe_z_coord[1], insertion_velocity, layer_depth])
+            for (needle_tip_depth, ilm_rpe_z, insertion_velocity, layer_depth) in itertools.zip_longest(needle_tip_depths, ilm_rpe_z_coords, insertion_vel, avg_layer_depth):
+                if ilm_rpe_z:
+                    ilm_z_coord, rpe_z_coord = ilm_rpe_z[0], ilm_rpe_z[1]
+                else:
+                    ilm_z_coord, rpe_z_coord = None, None
+                writer.writerow([needle_tip_depth, ilm_z_coord, rpe_z_coord, insertion_velocity, layer_depth])
 
     def save_pcd(self, seg_volumes: list, needle_tip_coords: list):
+        os.makedirs(self.result_pcd_dir, exist_ok=True)
         for vol_idx, (seg_vol, needle_tip_coord) in enumerate(zip(seg_volumes, needle_tip_coords)):
             oct_pcd = OctPointCloud(seg_vol)
             _ = oct_pcd.find_needle_tip()

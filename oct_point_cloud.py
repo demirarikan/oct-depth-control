@@ -376,7 +376,7 @@ class OctPointCloud:
         # o3d.visualization.draw_geometries([needle_pcd, ilm_pcd, rpe_pcd, needle_tip_sphere, ascan_cylinder, virtual_layer])
 
         return (
-            needle_tip_coords,
+            # needle_tip_coords,
             needle_pcd,
             ilm_pcd,
             rpe_pcd,

@@ -330,8 +330,8 @@ class OctPointCloud:
         Returns:
             open3d.geometry.PointCloud: Point cloud object for the virtual target layer.
         """
-        ilm_pcd = self.__ilm_pcd()
-        rpe_pcd = self.__rpe_pcd()
+        ilm_pcd = self.__create_ilm_pcd()
+        rpe_pcd = self.__create_rpe_pcd()
         virtual_pcd = o3d.geometry.PointCloud()
         virtual_points = []
         for ilm_point, rpe_point in zip(ilm_pcd.points, rpe_pcd.points):

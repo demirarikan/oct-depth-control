@@ -99,8 +99,8 @@ if __name__ == "__main__":
             rob_cont.move_along_needle_axis(linear_vel=rob_cont.linear_vel)
             time.sleep(0.01)
         else:
-            # rob_cont.stop()
-            print("robot controller shut down")
-            rospy.signal_shutdown("Stop signal received")
+            rob_cont.stop()
+            # print("robot controller shut down")
+            # rospy.signal_shutdown("Stop signal received")
             
 

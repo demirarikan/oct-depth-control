@@ -101,7 +101,7 @@ class ROSDepthControl:
             needle_tip_depth,
             needle_tip_depth_relative,
             needle_tip_depth_relative_percentage,
-            (ilm_depth, rpe_depth),
+            (int(ilm_depth), int(rpe_depth)),
         )
 
     def update_insertion_velocity(self, current_depth):

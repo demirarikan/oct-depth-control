@@ -10,7 +10,7 @@ import time
 
 
 class ROSDepthControl:
-    def __init__(self, target_depth, max_vel, seg_model, logger):
+    def __init__(self, target_depth, max_vel, breathing_compensation, seg_model, logger):
         # ROS components
         self.insertion_vel_pub = rospy.Publisher("cont_mov_vel", Float64, queue_size=1)
         self.insertion_stop_pub = rospy.Publisher("stop_cont_pub", Bool, queue_size=1)
@@ -24,17 +24,19 @@ class ROSDepthControl:
         self.target_depth = target_depth
         self.max_vel = max_vel
         self.insertion_complete = False
+        self.breathing_compensation = breathing_compensation
 
         # components
         self.seg_model = seg_model
         self.logger = logger
+
 
         self.log = {
             "b5_scans": [],             # b5 scan volume
             "segmented_volumes": [],    # segmented volume
             "needle_tip_coords": [],    # needle tip coordinates
             "needle_tip_depth": [],     # needle tip depth as percentage of retina thickness
-            "ilm_rpe_z_coords": [],      # ilm and rpe z coordinates at needle tip a-scan
+            "ilm_rpe_z_coords": [],     # ilm and rpe z coordinates at needle tip a-scan
             "insertion_velocity": [],   # insertion velocity calculated at each step
             "avg_layer_depth": [],      # average z pos of ilm points for breathing compensation
         }
@@ -68,6 +70,8 @@ class ROSDepthControl:
                 self.log["insertion_velocity"].append(insertion_vel)
 
             self.latest_b5_vol = []
+            if self.insertion_complete and not self.breathing_compensation:
+                rospy.signal_shutdown("Insertion complete, no breathing compensation. Shutting down...")    
             # print(f"Took: {time.perf_counter()-start_time} seconds")
 
     def segment_volume(self, oct_volume):
@@ -78,10 +82,11 @@ class ROSDepthControl:
 
     def process_pcd(self, seg_volume):
         oct_pcd = OctPointCloud(seg_volume)
-
         # ROS depth publisher for breathing compensation
         avg_depth = np.median(oct_pcd.ilm_points, axis=0)[1]
-        self.log["avg_layer_depth"].append(avg_depth)
+        # only log avg ilm layer depth if breathing compensation is done
+        if self.breathing_compensation:
+            self.log["avg_layer_depth"].append(avg_depth)
         self.layer_depth_pub.publish(avg_depth)
 
         needle_tip_coords = oct_pcd.find_needle_tip()
@@ -154,9 +159,12 @@ if __name__ == "__main__":
 
     rospy.on_shutdown(shutdown_hook)
 
-    target_depth = 0.5
-    max_vel = 0.3
+    target_depth = 0.4
+    max_vel = 0.4
+    breathing_compensation = False
     seg_model = NeedleSegModel(None, "weights/best_150_val_loss_0.4428_in_retina.pth")
-    logger = Logger()
-    depth_control = ROSDepthControl(target_depth, max_vel, seg_model, logger)
+    logger = Logger(log_dir="/media/peiyao/SSD1T/demir/oct22")
+    depth_control = ROSDepthControl(target_depth, max_vel, breathing_compensation, seg_model, logger)
     rospy.spin()
+    # while not rospy.is_shutdown():
+    #     continue

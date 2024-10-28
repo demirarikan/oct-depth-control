@@ -1,7 +1,44 @@
 # Real-time Deformation-aware Control for Autonomous Robotic Subretinal Injection under iOCT Guidance
 
+## Overview 
+This repository contains the code for a real-time deformation-aware control system designed for autonomous robotic subretinal injection. The system is guided by intraoperative Optical Coherence Tomography (iOCT) to ensure precision during delicate surgical procedures.
+
+## Features
+- Real-time deformation-aware control
+- Autonomous robotic subretinal injection
+- iOCT guidance for enhanced precision
+- Integration with Leica microscopes for B<sup>5</sup>-scan acquisition
+
+## Installation
+To use this repository, clone it and install the necessary dependencies:
+
+```bash
+git clone https://github.com/demirarikan/oct-depth-control.git
+cd oct-depth-control
+pip install -r requirements.txt
+```
+## Usage
 ### B<sup>5</sup>-scans
 This video shows how to setup the Leica microscope for B<sup>5</sup>-scan acquisition.
 
 https://github.com/user-attachments/assets/839f2aef-d5d9-4d78-9c4f-c91f6c62bcf6
 
+### Setting up ROS nodes
+
+- Start the b-scan publisher
+```python
+python3 b_scan_publisher.py
+```
+- Start the new robot controller
+```python
+python3 new_robot_controller.py
+```
+- Start the depth control script
+  
+>[!WARNING]
+>This will start moving the robot! Make sure the emergency stop button is within reach.
+
+Target depth and the maximum insertion velocity can be changed in the main function of this script as well. 
+```python
+python3 ros_depth_control.py
+```

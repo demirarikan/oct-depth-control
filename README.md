@@ -1,5 +1,7 @@
 # Real-time Deformation-aware Control for Autonomous Robotic Subretinal Injection under iOCT Guidance
 
+Paper: (Arxiv)[https://arxiv.org/abs/2411.06557]
+
 ## Overview 
 This repository contains the code for a real-time deformation-aware control system designed for autonomous robotic subretinal injection. The system is guided by intraoperative Optical Coherence Tomography (iOCT) to ensure precision during delicate surgical procedures.
 
